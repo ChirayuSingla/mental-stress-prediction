@@ -1,0 +1,15 @@
+target/
+*.class
+.venv/
+__pycache__/
+*.pyc
+ml/models/*.joblib
+ml/models/*.json
+ml/results/*.png
+ml/results/*.csv
+ml/data/*.csv
+!ml/data/README.md
+.env
+*.log
+.idea/
+.vscode/

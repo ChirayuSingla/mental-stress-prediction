@@ -1,0 +1,7 @@
+# Shared ML configuration. Paths are relative to the ml/ directory.
+random_seed: 42
+target: stress_label            # 0 = Low, 1 = Moderate, 2 = High
+group_column: participant_id    # used for participant-aware (GroupKFold) splitting
+cv_folds: 5
+baseline_sessions: 3            # first N sessions of each participant form the personal baseline
+stress_score_weights: [0.0, 0.5, 1.0]   # expected-value weights for Low / Moderate / High
