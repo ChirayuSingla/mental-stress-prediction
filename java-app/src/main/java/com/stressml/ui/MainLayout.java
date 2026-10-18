@@ -50,7 +50,7 @@ public class MainLayout extends BorderPane {
         Label mon = new Label(); mon.textProperty().bind(ctx.monitoringActive.map(a -> a ? "● Monitoring ACTIVE" : "● Monitoring PAUSED"));
         ctx.monitoringActive.addListener((o, a, b) -> { mon.getStyleClass().setAll("label", b ? "monitor-on" : "monitor-off"); });
         mon.getStyleClass().add(ctx.monitoringActive.get() ? "monitor-on" : "monitor-off");
-        Label ml = new Label(); ml.textProperty().bind(ctx.mlOnline.map(a -> a ? "ML service: online" : "ML service: OFFLINE (heuristic fallback)"));
+        Label ml = new Label(); ml.textProperty().bind(ctx.predictionStatus); ml.setWrapText(true);
         top.getChildren().addAll(mon, ml);
         setTop(top);
         setPage(pages.get("Dashboard").get());

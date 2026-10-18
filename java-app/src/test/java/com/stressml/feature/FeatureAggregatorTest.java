@@ -28,7 +28,13 @@ class FeatureAggregatorTest {
         assertEquals(3.0, w.appSwitchRate, 1e-9);
         assertEquals(AppCategory.IDE, w.activeAppCategory);
         assertTrue(w.continuousWorkS > 0);
-        assertEquals(26, w.toFeatureMap().size());            // matches ml/preprocessing/features.py ABSOLUTE
+        // SWELL-KW multimodal features verification
+        assertEquals(300.0, w.snKeyStrokes, 1e-9);
+        assertEquals(15.0, w.snErrorKeys, 1e-9);
+        assertEquals(16, w.toSwellFeatureMap().size());
+        assertTrue(w.toFeatureMap().containsKey("SnKeyStrokes"));
+        assertFalse(w.toSwellFeatureMap().containsKey("SnMouseAct"));
+        assertFalse(w.toSwellFeatureMap().containsKey("SnTabfocusChange"));
     }
 
     @Test
@@ -42,5 +48,17 @@ class FeatureAggregatorTest {
         FeatureWindow w = agg.build(idle, none, a, LocalDateTime.now());
         assertEquals(0.0, w.continuousWorkS, 1e-9);
         assertEquals(60.0, w.idleDurationS, 1e-9);
+    }
+
+    @Test
+    void normalizesCountsAndMatchesZeroDenominatorRatio() {
+        FeatureAggregator agg = new FeatureAggregator(30, 20);
+        var k = new KeyboardStats.Snapshot(4, 4, 0, 0, 0, List.of(), List.of(), 0, 0, 0, 0, 4);
+        var m = new MouseStats.Snapshot(100, List.of(), 0, 2, 0, List.of(), 0, 1, 1, 2, 1, 4);
+        var a = new ApplicationMonitor.Snapshot(2, AppCategory.IDE, Map.of(), 30);
+        FeatureWindow w = agg.build(k, m, a, LocalDateTime.now());
+        assertEquals(8, w.snKeyStrokes); assertEquals(2, w.snRightClicked);
+        assertEquals(200, w.snMouseDistance); assertEquals(4, w.snAppChange);
+        assertEquals(0, w.errorKeyRatio);
     }
 }

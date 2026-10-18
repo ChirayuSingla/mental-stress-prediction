@@ -18,12 +18,14 @@ public class FeatureRepository {
             "avg_key_hold_ms, avg_key_latency_ms, backspace_rate, error_rate, pause_count, avg_pause_ms, burst_count, typing_rhythm_cv, " +
             "mouse_distance_px, mouse_speed_px_s, mouse_accel_px_s2, click_count, click_rate, double_click_rate, avg_click_distance_px, " +
             "mouse_idle_s, direction_changes, mouse_speed_cv, app_switch_count, app_switch_rate, active_app_category, time_in_app_s, " +
-            "work_duration_s, idle_duration_s, continuous_work_s, stress_label FROM behavior_features ";
+            "work_duration_s, idle_duration_s, continuous_work_s, stress_label, " +
+            "(SELECT feature_json FROM swell_feature_windows sw WHERE sw.feature_id=behavior_features.feature_id) AS swell_json FROM behavior_features ";
     private final DatabaseManager db;
     public FeatureRepository(DatabaseManager db) { this.db = db; }
 
     public long insert(FeatureWindow w) throws SQLException {
         try (Connection c = db.connection(); PreparedStatement ps = c.prepareStatement(INSERT, Statement.RETURN_GENERATED_KEYS)) {
+            c.setAutoCommit(false);
             int i = 1;
             ps.setInt(i++, w.sessionId); ps.setTimestamp(i++, Timestamp.valueOf(w.windowStart)); ps.setInt(i++, w.windowSeconds);
             ps.setDouble(i++, w.typingSpeedWpm); ps.setDouble(i++, w.keystrokesPerMin); ps.setDouble(i++, w.avgKeyHoldMs);
@@ -37,7 +39,12 @@ public class FeatureRepository {
             ps.setDouble(i++, w.idleDurationS); ps.setDouble(i++, w.continuousWorkS);
             if (w.stressLabel == null) ps.setNull(i, Types.TINYINT); else ps.setInt(i, w.stressLabel);
             ps.executeUpdate();
-            try (ResultSet rs = ps.getGeneratedKeys()) { rs.next(); w.id = rs.getLong(1); return w.id; }
+            try (ResultSet rs = ps.getGeneratedKeys()) { rs.next(); w.id = rs.getLong(1); }
+            try (PreparedStatement sw = c.prepareStatement("INSERT INTO swell_feature_windows (feature_id, feature_json) VALUES (?,?)")) {
+                sw.setLong(1, w.id); sw.setString(2, new com.google.gson.Gson().toJson(w.toSwellFeatureMap())); sw.executeUpdate();
+            }
+            c.commit();
+            return w.id;
         }
     }
 
@@ -71,6 +78,9 @@ public class FeatureRepository {
                 try { w.activeAppCategory = AppCategory.valueOf(rs.getString(i++)); } catch (Exception e) { w.activeAppCategory = AppCategory.OTHER; }
                 w.timeInAppS = rs.getDouble(i++); w.workDurationS = rs.getDouble(i++); w.idleDurationS = rs.getDouble(i++);
                 w.continuousWorkS = rs.getDouble(i++); int lbl = rs.getInt(i); w.stressLabel = rs.wasNull() ? null : lbl;
+                String json = rs.getString("swell_json");
+                w.recordedSwellFeatures = json == null ? java.util.Map.of() : new com.google.gson.Gson().fromJson(json,
+                        new com.google.gson.reflect.TypeToken<java.util.Map<String, Double>>(){}.getType());
                 out.add(w);
             }
         }

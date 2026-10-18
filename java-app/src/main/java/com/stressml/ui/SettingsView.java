@@ -17,8 +17,8 @@ public class SettingsView extends VBox {
 
         Label privacy = new Label("""
                 Privacy: only timing, counts, speeds and categories are stored. No typed characters, passwords, window titles,
-                screenshots or clipboard contents are ever captured. Data is stored in your local database. The optional
-                Gemini re-phrasing (ML service) receives only rule text and aggregate scores.""");
+                screenshots or clipboard contents are ever captured. Data is stored in your local database.
+                Predictions use the local Python service. External Gemini re-phrasing is disabled.""");
         privacy.setWrapText(true); VBox privCard = new VBox(6, new Label("Privacy"), privacy); privCard.getStyleClass().add("card");
 
         Label calib = new Label(); calib.textProperty().bind(ctx.calibrationStatus);

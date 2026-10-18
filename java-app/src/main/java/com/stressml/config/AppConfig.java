@@ -25,6 +25,8 @@ public final class AppConfig {
     }
 
     private String get(String key, String def) {
+        String override = System.getProperty(key);
+        if (override != null) return override;
         String env = System.getenv(key.toUpperCase().replace('.', '_'));
         if (env != null && !env.isBlank()) return env;
         return props.getProperty(key, def);
@@ -39,12 +41,12 @@ public final class AppConfig {
     public int idleThresholdSeconds() { return Integer.parseInt(get("monitor.idle.threshold.seconds", "20")); }
     public int calibrationSessions() { return Integer.parseInt(get("baseline.calibration.sessions", "3")); }
     public int baselineMinWindows() { return Integer.parseInt(get("baseline.min.windows", "30")); }
-    public boolean demoMode() { return "demo".equalsIgnoreCase(get("app.mode", "demo")); }
+    public boolean demoMode() { return "demo".equalsIgnoreCase(get("app.mode", "real")); }
     public String participantCode() { return get("app.participant.code", "P001"); }
     public boolean trayEnabled() { return Boolean.parseBoolean(get("app.tray.enabled", "true")); }
     public int notificationCooldownSeconds() {
         int def = demoMode() ? 20 : 300;
         return Integer.parseInt(get("notification.cooldown.seconds", String.valueOf(def)));
     }
-    public double highStressThreshold() { return Double.parseDouble(get("notification.high.stress.threshold", "60.0")); }
+    public double highStressThreshold() { return Double.parseDouble(get("notification.high.stress.threshold", "6.0")); }
 }

@@ -57,6 +57,12 @@ CREATE TABLE IF NOT EXISTS application_usage (
   INDEX idx_usage_session (session_id, window_start)
 ) ENGINE=InnoDB;
 
+CREATE TABLE IF NOT EXISTS swell_feature_windows (
+  feature_id BIGINT PRIMARY KEY,
+  feature_json TEXT NOT NULL,
+  CONSTRAINT fk_swell_feature FOREIGN KEY (feature_id) REFERENCES behavior_features(feature_id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
 CREATE TABLE IF NOT EXISTS baseline_profiles (
   profile_id   INT AUTO_INCREMENT PRIMARY KEY,
   user_id      INT NOT NULL,
@@ -95,4 +101,11 @@ CREATE TABLE IF NOT EXISTS recommendations (
   message           VARCHAR(400) NOT NULL,
   acknowledged      TINYINT(1) NOT NULL DEFAULT 0,
   CONSTRAINT fk_rec_prediction FOREIGN KEY (prediction_id) REFERENCES predictions(prediction_id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS swell_prediction_inputs (
+  prediction_id BIGINT PRIMARY KEY,
+  observation_windows INT NOT NULL,
+  feature_json TEXT NOT NULL,
+  CONSTRAINT fk_swell_prediction FOREIGN KEY (prediction_id) REFERENCES predictions(prediction_id) ON DELETE CASCADE
 ) ENGINE=InnoDB;

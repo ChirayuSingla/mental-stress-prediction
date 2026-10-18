@@ -1,15 +1,40 @@
+# Build artifacts & dependencies
 target/
 *.class
 .venv/
 __pycache__/
 *.pyc
+
+# Raw & Processed Datasets (Never commit licensed SWELL-KW data)
+*.xlsx
+*.xls
+ml/data/raw/
+ml/data/processed/
+ml/data/*.csv
+ml/data/**/*.csv
+!ml/data/README.md
+
+# Trained ML Models & Results
 ml/models/*.joblib
 ml/models/*.json
 ml/results/*.png
 ml/results/*.csv
-ml/data/*.csv
-!ml/data/README.md
+
+# Local Databases & Runtime Data (Preserve local user DB)
+java-app/data/
+data/
+*.mv.db
+*.trace.db
+
+# Environment & IDE
 .env
 *.log
 .idea/
 .vscode/
+.pytest_cache/
+.audit/
+ml/results/*.json
+ml/data/**/*.json
+application.properties
+*.pem
+*.key

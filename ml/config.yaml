@@ -1,7 +1,12 @@
-# Shared ML configuration. Paths are relative to the ml/ directory.
+# Shared ML configuration for SWELL-KW Mental Stress Prediction.
+# Paths are relative to the ml/ directory.
+
 random_seed: 42
-target: stress_label            # 0 = Low, 1 = Moderate, 2 = High
-group_column: participant_id    # used for participant-aware (GroupKFold) splitting
+target: stress                  # Continuous questionnaire stress score (0.0 - 10.0 scale)
+task: regression
+group_column: participant_id    # Participant-aware GroupKFold splitting (strictly prevents participant leakage)
 cv_folds: 5
-baseline_sessions: 3            # first N sessions of each participant form the personal baseline
-stress_score_weights: [0.0, 0.5, 1.0]   # expected-value weights for Low / Moderate / High
+data_path: data/processed/swell_aggregated.csv
+compare_sn_mouse_distance: true # Compare models with and without SnMouseDistance
+stress_scale: "0-10"            # Continuous questionnaire scale from SWELL-KW
+# Alerts are optional user preferences in Java, not learned classification thresholds.

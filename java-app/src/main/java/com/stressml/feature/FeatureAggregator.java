@@ -50,6 +50,17 @@ public class FeatureAggregator {
         w.avgPauseMs = k.pauseCount() == 0 ? 0 : (double) k.totalPauseMs() / k.pauseCount();
         w.burstCount = k.burstCount();
 
+        // SWELL-KW keyboard metrics
+        w.snKeyStrokes = k.keyPresses();
+        w.snChars = k.chars();
+        w.snSpaces = k.spaces();
+        w.snErrorKeys = k.corrections();
+        w.snDirectionKeys = k.directionKeys();
+        w.snShortcutKeys = k.shortcutKeys();
+        w.snSpecialKeys = k.specialKeys();
+        w.charactersRatio = w.snKeyStrokes == 0 ? 0.0 : w.snChars / (double) w.snKeyStrokes;
+        w.errorKeyRatio = (w.snChars + w.snSpaces) == 0 ? 0.0 : w.snErrorKeys / (w.snChars + w.snSpaces);
+
         // ---- mouse ----
         w.mouseDistancePx = m.distance();
         w.mouseSpeedPxS = m.speeds().isEmpty() ? 0 : mean(m.speeds());
@@ -61,11 +72,30 @@ public class FeatureAggregator {
         w.avgClickDistancePx = mean(m.clickDistances());
         w.directionChanges = m.directionChanges();
 
+        // SWELL-KW mouse metrics
+        w.snMouseAct = m.mouseActs();
+        w.snLeftClicked = m.leftClicks();
+        w.snRightClicked = m.rightClicks();
+        w.snDoubleClicked = m.doubleClicks();
+        w.snWheel = m.wheelEvents();
+        w.snDragged = m.dragEvents();
+        w.snMouseDistance = m.distance();
+
         // ---- application / work-idle ----
         w.appSwitchCount = a.switches();
         w.appSwitchRate = a.switches() / minutes;
         w.activeAppCategory = a.dominant();
         w.timeInAppS = a.switches() == 0 ? windowSeconds : (double) windowSeconds / (a.switches() + 1);
+
+        // SWELL-KW application metrics
+        w.snAppChange = a.switches();
+        w.snTabfocusChange = Double.NaN; // not measured by foreground process polling
+        // SWELL counts are per minute, independent of the configured interval.
+        w.snKeyStrokes /= minutes; w.snChars /= minutes; w.snSpaces /= minutes;
+        w.snErrorKeys /= minutes; w.snDirectionKeys /= minutes; w.snShortcutKeys /= minutes;
+        w.snSpecialKeys /= minutes; w.snMouseAct /= minutes; w.snLeftClicked /= minutes;
+        w.snRightClicked /= minutes; w.snDoubleClicked /= minutes; w.snWheel /= minutes;
+        w.snDragged /= minutes; w.snMouseDistance /= minutes; w.snAppChange /= minutes;
 
         boolean anyActivity = k.keyPresses() > 0 || m.clicks() > 0 || m.distance() > 50;
         double activityFraction = Math.min(1.0, (k.keyPresses() + m.clicks() + m.speeds().size() / 20.0) / 40.0);

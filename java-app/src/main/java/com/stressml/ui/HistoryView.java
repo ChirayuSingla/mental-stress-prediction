@@ -20,17 +20,17 @@ public class HistoryView extends VBox {
         getChildren().add(UiKit.title("History"));
         try {
             List<double[]> daily = ctx.predictions.dailyAverages(ctx.userId(), 30);
-            CategoryAxis dx = new CategoryAxis(); NumberAxis dy = new NumberAxis(0, 100, 20);
-            BarChart<String, Number> dailyChart = new BarChart<>(dx, dy); dailyChart.setTitle("Daily average stress score (last 30 days)"); dailyChart.setLegendVisible(false); dailyChart.setPrefHeight(240);
+            CategoryAxis dx = new CategoryAxis(); NumberAxis dy = new NumberAxis(0, 10, 2);
+            BarChart<String, Number> dailyChart = new BarChart<>(dx, dy); dailyChart.setTitle("Daily SWELL score (0-10; legacy predictions excluded)"); dailyChart.setLegendVisible(false); dailyChart.setPrefHeight(240);
             XYChart.Series<String, Number> ds = new XYChart.Series<>();
             for (double[] d : daily) ds.getData().add(new XYChart.Data<>(java.time.LocalDate.ofEpochDay((long) d[2]).toString(), d[1]));
             dailyChart.getData().add(ds);
 
             List<double[]> sessionsScores = ctx.predictions.sessionScores(ctx.userId(), 30);
-            NumberAxis sx = new NumberAxis(), sy = new NumberAxis(0, 100, 20); sx.setLabel("Session (oldest → newest)");
+            NumberAxis sx = new NumberAxis(), sy = new NumberAxis(0, 10, 2); sx.setLabel("Session (oldest → newest)");
             LineChart<Number, Number> sessionChart = new LineChart<>(sx, sy); sessionChart.setTitle("Session trend: stress vs fatigue"); sessionChart.setAnimated(false); sessionChart.setPrefHeight(240);
-            XYChart.Series<Number, Number> st = new XYChart.Series<>(), ft = new XYChart.Series<>(); st.setName("stress"); ft.setName("fatigue");
-            int i = 0; for (double[] s : sessionsScores) { st.getData().add(new XYChart.Data<>(i, s[1])); ft.getData().add(new XYChart.Data<>(i++, s[2])); }
+            XYChart.Series<Number, Number> st = new XYChart.Series<>(), ft = new XYChart.Series<>(); st.setName("questionnaire estimate (0-10)"); ft.setName("fatigue heuristic / 10");
+            int i = 0; for (double[] s : sessionsScores) { st.getData().add(new XYChart.Data<>(i, s[1])); ft.getData().add(new XYChart.Data<>(i++, s[2] / 10.0)); }
             sessionChart.getData().addAll(st, ft);
 
             TableView<Session> table = new TableView<>(); table.setPrefHeight(200);

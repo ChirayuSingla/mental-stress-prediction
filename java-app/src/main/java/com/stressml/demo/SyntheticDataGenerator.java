@@ -50,6 +50,27 @@ public class SyntheticDataGenerator {
         w.workDurationS = windowSeconds - w.idleDurationS;
         continuousWork = w.idleDurationS > 20 ? 0 : continuousWork + w.workDurationS;
         w.continuousWorkS = continuousWork;
+
+        // Populate SWELL-KW feature equivalents
+        w.snKeyStrokes = w.keystrokesPerMin;
+        w.snChars = Math.round(w.snKeyStrokes * 0.7);
+        w.snSpaces = Math.round(w.snKeyStrokes * 0.15);
+        w.snErrorKeys = Math.round(w.snKeyStrokes * w.errorRate);
+        w.snDirectionKeys = 3;
+        w.snShortcutKeys = 1;
+        w.snSpecialKeys = Math.max(0, w.snKeyStrokes - w.snChars - w.snSpaces - w.snErrorKeys - 4);
+        w.charactersRatio = w.snKeyStrokes == 0 ? 0 : w.snChars / w.snKeyStrokes;
+        w.errorKeyRatio = (w.snChars + w.snSpaces) == 0 ? 0 : w.snErrorKeys / (w.snChars + w.snSpaces);
+        w.snLeftClicked = w.clickCount;
+        w.snRightClicked = Math.max(0, (int) Math.round(w.clickCount * 0.1));
+        w.snDoubleClicked = (int) Math.round(w.doubleClickRate);
+        w.snWheel = 5;
+        w.snDragged = 2;
+        w.snMouseDistance = w.mouseDistancePx;
+        w.snMouseAct = w.snLeftClicked + w.snRightClicked + w.snWheel + w.snDragged + 20;
+        w.snAppChange = w.appSwitchCount;
+        w.snTabfocusChange = w.appSwitchCount;
+
         return w;
     }
 

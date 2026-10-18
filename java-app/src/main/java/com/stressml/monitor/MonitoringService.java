@@ -37,6 +37,7 @@ public class MonitoringService {
             GlobalScreen.addNativeKeyListener(keyboardMonitor);
             GlobalScreen.addNativeMouseListener(mouseMonitor);
             GlobalScreen.addNativeMouseMotionListener(mouseMonitor);
+            GlobalScreen.addNativeMouseWheelListener(mouseMonitor);
             scheduler = Executors.newSingleThreadScheduledExecutor(r -> { Thread t = new Thread(r, "app-poller"); t.setDaemon(true); return t; });
             scheduler.scheduleAtFixedRate(appMonitor::tick, 1, 1, TimeUnit.SECONDS);
             active = true;
@@ -52,6 +53,7 @@ public class MonitoringService {
             GlobalScreen.removeNativeKeyListener(keyboardMonitor);
             GlobalScreen.removeNativeMouseListener(mouseMonitor);
             GlobalScreen.removeNativeMouseMotionListener(mouseMonitor);
+            GlobalScreen.removeNativeMouseWheelListener(mouseMonitor);
             GlobalScreen.unregisterNativeHook();
         } catch (NativeHookException e) {
             log.warn("Error unregistering hook", e);

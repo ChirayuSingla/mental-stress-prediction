@@ -1,38 +1,31 @@
-"""Missing-value handling, outlier clipping and feature-matrix construction."""
-import pandas as pd
-from .features import ABSOLUTE, APP_CATEGORY_COL, APP_CATEGORIES
+"""Validate condition-block observations; learned preprocessing belongs in folds."""
+import numpy as np
+from .features import SWELL_ALL
 
+def validate_swell_df(df, feature_cols, target_col="stress"):
+    required = list(feature_cols) + [target_col, "participant_id", "block", "condition"]
+    missing = [c for c in required if c not in df]
+    if missing:
+        raise ValueError(f"Missing required columns: {missing}")
+    if "is_synthetic" in df and df.is_synthetic.astype(str).str.lower().isin(["1", "1.0", "true"]).any():
+        raise ValueError("Synthetic data is demo-only and cannot enter SWELL experiments")
+    if df[["participant_id", "block", "condition", target_col]].isna().any().any():
+        raise ValueError("Missing identifiers or target")
+    if not df.condition.isin(["N", "I", "T"]).all():
+        raise ValueError("Only labeled N/I/T conditions are supervised observations")
+    if df.duplicated(["participant_id", "block", "condition"]).any():
+        raise ValueError("Repeated minute rows detected: aggregate participant/block/condition first")
+    y = df[target_col].to_numpy(dtype=float)
+    X = df[list(feature_cols)].to_numpy(dtype=float)
+    if not np.isfinite(y).all() or ((y < 0) | (y > 10)).any():
+        raise ValueError("Target must be finite questionnaire ratings in [0, 10]")
+    if np.isinf(X).any() or (X < 0).any():
+        raise ValueError("Infinite or negative interaction values require investigation")
 
-def clean(df: pd.DataFrame) -> pd.DataFrame:
-    df = df.copy()
-    for c in ABSOLUTE:
-        if c not in df:
-            raise ValueError(f"Missing required column: {c}")
-        df[c] = pd.to_numeric(df[c], errors="coerce")
-    for c in ABSOLUTE:  # missing values: per-participant median, then global median
-        df[c] = df.groupby("participant_id")[c].transform(lambda s: s.fillna(s.median()))
-        df[c] = df[c].fillna(df[c].median())
-    for c in ABSOLUTE:  # outliers: winsorise to 1st/99th percentile
-        lo, hi = df[c].quantile(0.01), df[c].quantile(0.99)
-        df[c] = df[c].clip(lo, hi)
-    df[APP_CATEGORY_COL] = df[APP_CATEGORY_COL].fillna("OTHER").astype(str).str.upper()
-    df.loc[~df[APP_CATEGORY_COL].isin(APP_CATEGORIES), APP_CATEGORY_COL] = "OTHER"
-    return df
+def build_regression_matrix(df, feature_cols=None, target_col="stress"):
+    cols = SWELL_ALL if feature_cols is None else feature_cols
+    validate_swell_df(df, cols, target_col)
+    return (df[cols].to_numpy(dtype=float), df[target_col].to_numpy(dtype=float),
+            df.participant_id.astype(str).to_numpy())
 
-
-def one_hot_app(df: pd.DataFrame) -> pd.DataFrame:
-    for cat in APP_CATEGORIES:
-        df[f"app_{cat.lower()}"] = (df[APP_CATEGORY_COL] == cat).astype(int)
-    return df
-
-
-def app_onehot_columns():
-    return [f"app_{c.lower()}" for c in APP_CATEGORIES]
-
-
-def build_matrix(df: pd.DataFrame, feature_cols):
-    """Scaling lives inside each model Pipeline (StandardScaler) so CV folds never leak statistics."""
-    X = df[feature_cols].astype(float).values
-    y = df["stress_label"].astype(int).values
-    groups = df["participant_id"].values
-    return X, y, groups
+build_matrix = build_regression_matrix

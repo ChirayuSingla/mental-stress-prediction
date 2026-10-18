@@ -41,7 +41,9 @@
         <groupId>org.openjfx</groupId><artifactId>javafx-maven-plugin</artifactId><version>0.0.8</version>
         <configuration><mainClass>com.stressml.App</mainClass></configuration>
       </plugin>
-      <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-surefire-plugin</artifactId><version>3.2.5</version></plugin>
+      <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-surefire-plugin</artifactId><version>3.2.5</version>
+        <configuration><systemPropertyVariables><db.url>jdbc:h2:mem:stress_test;MODE=MySQL;DATABASE_TO_LOWER=TRUE</db.url></systemPropertyVariables></configuration>
+      </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId><artifactId>maven-shade-plugin</artifactId><version>3.5.2</version>
         <executions><execution><phase>package</phase><goals><goal>shade</goal></goals>

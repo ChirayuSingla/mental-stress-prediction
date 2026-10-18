@@ -43,7 +43,7 @@ public class DatabaseManager implements AutoCloseable {
             }
             log.info("Embedded schema ready");
         } catch (IOException | SQLException e) {
-            log.error("Schema bootstrap failed", e);
+            throw new IllegalStateException("Database schema initialization failed; existing data has not been reset", e);
         }
     }
 

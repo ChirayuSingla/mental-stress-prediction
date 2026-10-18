@@ -18,16 +18,18 @@ import javafx.util.Duration;
 public class DashboardView extends VBox {
     public DashboardView(AppContext ctx) {
         getStyleClass().add("page");
-        getChildren().add(UiKit.title("Dashboard"));
+        getChildren().add(UiKit.title("Dashboard — session mean features"));
+        Label evidence = new Label("Exploratory research estimate. Grouped CV performs below a mean-score baseline; minute-level desktop validity is unmeasured.");
+        evidence.setWrapText(true); evidence.getStyleClass().add("card-sub"); getChildren().add(evidence);
 
         Label level = new Label("—"), score = new Label("—"), fatigue = new Label("—"), burnout = new Label("—"), duration = new Label("0h 00m");
         FlowPane cards = new FlowPane(14, 14);
-        cards.getChildren().addAll(UiKit.card("STRESS LEVEL", level, "ML classification"), UiKit.card("STRESS SCORE", score, "0–100, expected value of class probabilities"),
-                UiKit.card("FATIGUE INDICATOR", fatigue, "0–100 composite"), UiKit.card("BURNOUT RISK INDICATOR", burnout, "longer-term trend, not a diagnosis"),
+        cards.getChildren().addAll(UiKit.card("STRESS ESTIMATE", level, "SWELL continuous model rating"), UiKit.card("STRESS SCORE", score, "0–10 SWELL questionnaire rating"),
+                UiKit.card("ACTIVITY HEURISTIC", fatigue, "0–100; unvalidated"), UiKit.card("SCORE HISTORY", burnout, "descriptive heuristic, not a diagnosis"),
                 UiKit.card("SESSION DURATION", duration, "current session"));
         getChildren().add(cards);
 
-        NumberAxis x = new NumberAxis(), y = new NumberAxis(0, 100, 20); x.setLabel("Window"); y.setLabel("Stress score");
+        NumberAxis x = new NumberAxis(), y = new NumberAxis(0, 10, 2); x.setLabel("Window"); y.setLabel("Stress score (0–10)");
         LineChart<Number, Number> chart = new LineChart<>(x, y); chart.setTitle("Stress score — current session"); chart.setCreateSymbols(false); chart.setAnimated(false); chart.setPrefHeight(260);
         XYChart.Series<Number, Number> series = new XYChart.Series<>(); series.setName("stress score"); chart.getData().add(series);
         getChildren().add(chart);
@@ -44,15 +46,16 @@ public class DashboardView extends VBox {
 
         Runnable refresh = () -> {
             Prediction p = ctx.latestPrediction.get();
-            level.setText(p.stressLabel); level.getStyleClass().removeAll("status-low", "status-moderate", "status-high"); level.getStyleClass().add(UiKit.stressStyle(p.stressClass));
-            score.setText(String.format("%.0f", p.stressScore)); fatigue.setText(String.format("%.0f", p.fatigueScore));
+            level.setText(Double.isFinite(p.stressScore) ? "Research estimate" : "Unavailable"); level.getStyleClass().removeAll("status-low", "status-moderate", "status-high"); level.getStyleClass().add(UiKit.stressStyle(p.stressClass));
+            score.setText(Double.isFinite(p.stressScore) ? String.format("%.1f", p.stressScore) : "Unavailable"); fatigue.setText(String.format("%.0f", p.fatigueScore));
             burnout.setText(p.burnoutLabel.replace(" (indicator)", ""));
             recs.getChildren().clear();
             for (String r : p.recommendations) { Label l = new Label("• " + r); l.setWrapText(true); l.getStyleClass().add("rec-item"); recs.getChildren().add(l); }
             series.getData().clear();
             int i = 0; for (Prediction q : ctx.sessionPredictions) series.getData().add(new XYChart.Data<>(i++, q.stressScore));
         };
-        ctx.latestPrediction.addListener((o, a, b) -> refresh.run()); refresh.run();
+        ctx.latestPrediction.addListener((o, a, b) -> refresh.run());
+        ctx.sessionPredictions.addListener((javafx.collections.ListChangeListener<Prediction>) c -> refresh.run()); refresh.run();
         Timeline clock = new Timeline(new KeyFrame(Duration.seconds(1), e -> duration.setText(UiKit.fmtDuration(ctx.sessionDuration()))));
         clock.setCycleCount(Timeline.INDEFINITE); clock.play();
     }

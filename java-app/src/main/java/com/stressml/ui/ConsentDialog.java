@@ -9,8 +9,12 @@ public final class ConsentDialog {
     private ConsentDialog() {}
 
     public static boolean requestConsent(Stage owner) {
+        return createDialog(owner).showAndWait().orElse(ButtonType.NO) == ButtonType.YES;
+    }
+
+    static Alert createDialog(Stage owner) {
         Alert a = new Alert(Alert.AlertType.CONFIRMATION);
-        a.initOwner(owner);
+        if (owner != null && owner.getScene() != null) a.initOwner(owner);
         a.setTitle("Consent to behavioural monitoring");
         a.setHeaderText("This research tool records behavioural METADATA only");
         a.setContentText("""
@@ -22,6 +26,6 @@ public final class ConsentDialog {
 
                 Do you consent to start monitoring?""");
         a.getButtonTypes().setAll(ButtonType.YES, ButtonType.NO);
-        return a.showAndWait().orElse(ButtonType.NO) == ButtonType.YES;
+        return a;
     }
 }

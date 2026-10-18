@@ -21,8 +21,8 @@ public class ExplanationView extends VBox {
         getChildren().add(UiKit.title("Why this prediction?"));
         Label q = new Label(); q.getStyleClass().add("card-sub");
 
-        CategoryAxis x = new CategoryAxis(); NumberAxis y = new NumberAxis(); y.setLabel("contribution (SHAP)");
-        BarChart<String, Number> bars = new BarChart<>(x, y); bars.setTitle("Top factors for the predicted class"); bars.setLegendVisible(false); bars.setAnimated(false); bars.setPrefHeight(260);
+        CategoryAxis x = new CategoryAxis(); NumberAxis y = new NumberAxis(); y.setLabel("score difference vs median replacement");
+        BarChart<String, Number> bars = new BarChart<>(x, y); bars.setTitle("Model sensitivity (not SHAP or causality)"); bars.setLegendVisible(false); bars.setAnimated(false); bars.setPrefHeight(260);
         VBox factorList = new VBox(4); VBox factorCard = new VBox(8, new Label("Main contributing factors"), factorList); factorCard.getStyleClass().add("card");
 
         GridPane grid = new GridPane(); grid.setHgap(18); grid.setVgap(4);
@@ -31,10 +31,10 @@ public class ExplanationView extends VBox {
 
         Runnable refresh = () -> {
             Prediction p = ctx.latestPrediction.get(); FeatureWindow w = ctx.latestWindow.get();
-            q.setText("Why was my stress level classified as " + p.stressLabel + "?  (model: " + p.modelName + ", data: " + p.dataMode + ")");
+            q.setText(p.stressLabel + " (model: " + p.modelName + ", data: " + p.dataMode + "). Personal baseline is descriptive only; it is not a model input.");
             XYChart.Series<String, Number> s = new XYChart.Series<>();
             factorList.getChildren().clear();
-            for (Prediction.Factor f : p.topFactors) { s.getData().add(new XYChart.Data<>(f.feature, f.contribution)); Label l = new Label("• " + f.humanReadable + " (" + f.direction + " stress)"); l.setWrapText(true); factorList.getChildren().add(l); }
+            for (Prediction.Factor f : p.topFactors) { s.getData().add(new XYChart.Data<>(f.feature, f.contribution)); Label l = new Label("• " + f.humanReadable + " (" + f.direction + " model score)"); l.setWrapText(true); factorList.getChildren().add(l); }
             bars.getData().setAll(s);
             grid.getChildren().clear();
             String[] hdr = {"Feature", "Baseline mean", "Current", "Deviation"};

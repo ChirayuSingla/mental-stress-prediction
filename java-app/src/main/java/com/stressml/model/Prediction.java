@@ -9,14 +9,17 @@ public class Prediction {
     public long id;
     public long featureId;
     public LocalDateTime predictedAt = LocalDateTime.now();
-    public int stressClass;
+    public int stressClass = -1;
     public String stressLabel = "Unknown";
     public double probLow, probModerate, probHigh;
-    public double stressScore, fatigueScore, burnoutScore;
+    public double stressScore = Double.NaN;
+    public double fatigueScore, burnoutScore;
     public String burnoutLabel = "Insufficient history";
     public String modelName = "n/a";
     public String dataMode = "n/a";
     public boolean demoMode;
+    public java.util.Map<String, Double> inputFeatures = java.util.Map.of();
+    public int observationWindows = 1;
     public List<Factor> topFactors = new ArrayList<>();
     public List<String> recommendations = new ArrayList<>();
 

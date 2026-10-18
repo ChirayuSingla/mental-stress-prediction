@@ -137,7 +137,7 @@ public class NotificationService {
                     ? "Elevated stress detected. Please consider taking a short break."
                     : p.recommendations.get(0);
             showTrayMessage(
-                    "⚠️ High Stress Detected (" + Math.round(p.stressScore) + "/100)",
+                    "⚠️ High Stress Detected (" + Math.round(p.stressScore) + "/10)",
                     rec,
                     TrayIcon.MessageType.WARNING
             );

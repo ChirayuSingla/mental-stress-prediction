@@ -27,6 +27,15 @@ public class App extends Application {
     @Override
     public void start(Stage stage) {
         AppConfig config = AppConfig.load();
+        // JavaFX Dialog copies the owner's Scene styles during initOwner().
+        // Attach a Scene before consent, and do not create a session or hooks yet.
+        stage.setScene(new Scene(new javafx.scene.layout.StackPane()));
+        if (!config.demoMode() && !ConsentDialog.requestConsent(stage)) {
+            log.info("Consent declined — exiting without monitoring.");
+            stage.close();
+            Platform.exit();
+            return;
+        }
         DatabaseManager db = new DatabaseManager(config);
         db.initialiseSchemaIfEmbedded();
 
@@ -39,11 +48,6 @@ public class App extends Application {
 
         ctx = new AppContext(config, db, mlClient, baseline, recEngine, aggregator, monitoring, demo);
 
-        if (!ctx.isDemoMode() && !ConsentDialog.requestConsent(stage)) {
-            log.info("Consent declined — exiting without monitoring.");
-            stage.close();
-            return;
-        }
         ctx.startSession();
 
         // Allow app to continue monitoring in background when main window is hidden
@@ -95,7 +99,8 @@ public class App extends Application {
         stage.show();
     }
 
-    private void shutdown() {
+    @Override
+    public void stop() {
         if (ctx != null) ctx.shutdown();
     }
 

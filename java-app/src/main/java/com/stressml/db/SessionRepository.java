@@ -22,7 +22,7 @@ public class SessionRepository {
 
     public void end(int sessionId, int breakCount, Integer selfReport, String instrument) throws SQLException {
         try (Connection c = db.connection(); PreparedStatement ps = c.prepareStatement(
-                "UPDATE sessions SET ended_at=?, break_count=?, self_report_stress=?, self_report_instrument=? WHERE session_id=?")) {
+                "UPDATE sessions SET ended_at=?, break_count=?, self_report_stress=COALESCE(?,self_report_stress), self_report_instrument=COALESCE(?,self_report_instrument) WHERE session_id=?")) {
             ps.setTimestamp(1, Timestamp.valueOf(LocalDateTime.now())); ps.setInt(2, breakCount);
             if (selfReport == null) ps.setNull(3, Types.TINYINT); else ps.setInt(3, selfReport);
             ps.setString(4, instrument); ps.setInt(5, sessionId); ps.executeUpdate();
@@ -34,6 +34,13 @@ public class SessionRepository {
                 "SELECT COUNT(*) FROM sessions WHERE user_id=? AND ended_at IS NOT NULL")) {
             ps.setInt(1, userId);
             try (ResultSet rs = ps.executeQuery()) { rs.next(); return rs.getInt(1); }
+        }
+    }
+
+    public void saveSelfReport(int sessionId, int score, String instrument) throws SQLException {
+        try (Connection c = db.connection(); PreparedStatement ps = c.prepareStatement(
+                "UPDATE sessions SET self_report_stress=?, self_report_instrument=? WHERE session_id=?")) {
+            ps.setInt(1, score); ps.setString(2, instrument); ps.setInt(3, sessionId); ps.executeUpdate();
         }
     }
 

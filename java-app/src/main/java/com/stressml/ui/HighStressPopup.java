@@ -55,13 +55,13 @@ public class HighStressPopup {
             Region spacer = new Region();
             HBox.setHgrow(spacer, Priority.ALWAYS);
 
-            Label scoreLabel = new Label(String.format("%.0f/100", p.stressScore));
+            Label scoreLabel = new Label(String.format("%.1f / 10", p.stressScore));
             scoreLabel.getStyleClass().addAll("popup-score-badge", "status-high");
 
             header.getChildren().addAll(warningBadge, spacer, scoreLabel);
 
             // Subtitle
-            Label sub = new Label("Your keyboard & mouse patterns show notable deviation from baseline.");
+            Label sub = new Label("The estimated questionnaire score reached your configured alert preference. This is not a validated clinical threshold.");
             sub.getStyleClass().add("card-sub");
             sub.setWrapText(true);
 
