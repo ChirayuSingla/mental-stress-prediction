@@ -28,7 +28,12 @@ public class FeatureAggregator {
 
     /** Builds the window from current accumulators and resets them. */
     public FeatureWindow buildWindow() {
-        return build(keyboardStats.drain(), mouseStats.drain(), appMonitor.drain(), LocalDateTime.now());
+        return build(keyboardStats.drain(), mouseStats.drain(), appMonitor.drain(), LocalDateTime.now().minusSeconds(windowSeconds));
+    }
+
+    /** Discard a partial interval without advancing work/calibration statistics. */
+    public void discardWindow() {
+        keyboardStats.reset(); mouseStats.reset(); appMonitor.reset();
     }
 
     /** Pure function used by tests and demo mode. */

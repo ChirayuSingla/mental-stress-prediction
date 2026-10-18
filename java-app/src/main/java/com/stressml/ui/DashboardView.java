@@ -19,7 +19,7 @@ public class DashboardView extends VBox {
     public DashboardView(AppContext ctx) {
         getStyleClass().add("page");
         getChildren().add(UiKit.title("Dashboard — session mean features"));
-        Label evidence = new Label("Exploratory research estimate. Grouped CV performs below a mean-score baseline; minute-level desktop validity is unmeasured.");
+        Label evidence = new Label("Nested participant validation has not established useful behavioral prediction. Population references are not individualized; desktop validity is unmeasured.");
         evidence.setWrapText(true); evidence.getStyleClass().add("card-sub"); getChildren().add(evidence);
 
         Label level = new Label("—"), score = new Label("—"), fatigue = new Label("—"), burnout = new Label("—"), duration = new Label("0h 00m");
@@ -46,7 +46,7 @@ public class DashboardView extends VBox {
 
         Runnable refresh = () -> {
             Prediction p = ctx.latestPrediction.get();
-            level.setText(Double.isFinite(p.stressScore) ? "Research estimate" : "Unavailable"); level.getStyleClass().removeAll("status-low", "status-moderate", "status-high"); level.getStyleClass().add(UiKit.stressStyle(p.stressClass));
+            level.setText(Double.isFinite(p.stressScore) ? ("reference_baseline".equals(p.predictionKind) ? "Population reference" : "Research estimate") : "Unavailable"); level.getStyleClass().removeAll("status-low", "status-moderate", "status-high"); level.getStyleClass().add(UiKit.stressStyle(p.stressClass));
             score.setText(Double.isFinite(p.stressScore) ? String.format("%.1f", p.stressScore) : "Unavailable"); fatigue.setText(String.format("%.0f", p.fatigueScore));
             burnout.setText(p.burnoutLabel.replace(" (indicator)", ""));
             recs.getChildren().clear();

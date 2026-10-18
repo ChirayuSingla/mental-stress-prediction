@@ -24,7 +24,7 @@ public class ActiveWindowProvider {
             if (os.contains("win")) return windows();
             if (os.contains("mac")) return exec("osascript", "-e",
                     "tell application \"System Events\" to get name of first application process whose frontmost is true");
-            return exec("sh", "-c", "xdotool getactivewindow getwindowclassname 2>/dev/null || xdotool getactivewindow getwindowname");
+            return exec("sh", "-c", "xdotool getactivewindow getwindowclassname 2>/dev/null");
         } catch (Throwable t) {
             return null;
         }

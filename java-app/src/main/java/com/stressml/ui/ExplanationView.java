@@ -34,6 +34,10 @@ public class ExplanationView extends VBox {
             q.setText(p.stressLabel + " (model: " + p.modelName + ", data: " + p.dataMode + "). Personal baseline is descriptive only; it is not a model input.");
             XYChart.Series<String, Number> s = new XYChart.Series<>();
             factorList.getChildren().clear();
+            if ("reference_baseline".equals(p.predictionKind)) {
+                Label reference = new Label("This population reference is fitted from training questionnaire scores. It does not use your behavior and has no behavioral feature contributions.");
+                reference.setWrapText(true); factorList.getChildren().add(reference);
+            }
             for (Prediction.Factor f : p.topFactors) { s.getData().add(new XYChart.Data<>(f.feature, f.contribution)); Label l = new Label("• " + f.humanReadable + " (" + f.direction + " model score)"); l.setWrapText(true); factorList.getChildren().add(l); }
             bars.getData().setAll(s);
             grid.getChildren().clear();

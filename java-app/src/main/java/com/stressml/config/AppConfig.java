@@ -21,6 +21,15 @@ public final class AppConfig {
         } catch (IOException e) {
             throw new IllegalStateException("Cannot load configuration", e);
         }
+        if (c.windowSeconds() <= 0 || c.mlTimeoutMs() <= 0 || c.baselineMinWindows() <= 0 || c.calibrationSessions() <= 0)
+            throw new IllegalArgumentException("Window, timeout and calibration settings must be positive");
+        String mode = c.get("app.mode", "real");
+        if (!mode.equalsIgnoreCase("real") && !mode.equalsIgnoreCase("demo"))
+            throw new IllegalArgumentException("app.mode must be real or demo");
+        if (!c.participantCode().matches("[A-Za-z0-9_][A-Za-z0-9_-]{0,31}"))
+            throw new IllegalArgumentException("Participant code must be a pseudonym of 1-32 letters, digits, underscores or hyphens");
+        if (!Double.isFinite(c.highStressThreshold()) || c.highStressThreshold() < 0 || c.highStressThreshold() > 10)
+            throw new IllegalArgumentException("Alert preference must be in [0,10]");
         return c;
     }
 

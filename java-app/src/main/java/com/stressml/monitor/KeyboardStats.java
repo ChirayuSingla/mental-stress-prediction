@@ -35,6 +35,7 @@ public class KeyboardStats {
     }
 
     public synchronized void onKeyHold(long ms) { if (ms > 0 && ms < 2000) holdMs.add(ms); }
+    public synchronized void reset() { drain(); lastPressTime = -1; }
 
     /** Snapshot and reset for the next window. */
     public synchronized Snapshot drain() {

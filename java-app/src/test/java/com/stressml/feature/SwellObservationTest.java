@@ -3,6 +3,12 @@ import org.junit.jupiter.api.Test;
 import java.util.Map;
 import static org.junit.jupiter.api.Assertions.*;
 class SwellObservationTest {
+    @Test void invalidOrChangingSchemasDoNotAdvanceObservation() {
+        SwellObservation obs=new SwellObservation();obs.add(Map.of("SnChars",10.));
+        assertThrows(IllegalArgumentException.class,()->obs.add(Map.of("SnChars",Double.NaN)));
+        assertThrows(IllegalArgumentException.class,()->obs.add(Map.of("SnSpaces",1.)));
+        assertEquals(1,obs.windows());
+    }
     @Test void averagesOnlyCompletedCurrentSessionMeasurements() {
         SwellObservation obs = new SwellObservation();
         obs.add(Map.of("SnChars", 10., "ErrorKeyRatio", .1));

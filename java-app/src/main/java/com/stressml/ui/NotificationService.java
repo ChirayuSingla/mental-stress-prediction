@@ -129,15 +129,15 @@ public class NotificationService {
         }
         lastAlertTimeMs = now;
 
-        log.info("Triggering High-Stress Alert: Score={}", p.stressScore);
+        log.info("User score alert triggered");
 
         // 1. Native Windows System Tray Notification
         if (traySupported && trayIcon != null) {
             String rec = p.recommendations.isEmpty()
-                    ? "Elevated stress detected. Please consider taking a short break."
+                    ? "Configured score preference reached. Consider a break."
                     : p.recommendations.get(0);
             showTrayMessage(
-                    "⚠️ High Stress Detected (" + Math.round(p.stressScore) + "/10)",
+                    "⚠️ User Score Alert (" + Math.round(p.stressScore) + "/10)",
                     rec,
                     TrayIcon.MessageType.WARNING
             );

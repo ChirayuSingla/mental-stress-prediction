@@ -45,7 +45,7 @@ class MlClientTest {
             assertTrue(client.lastError().contains("HTTP 503"));
             status.set(200);
             assertTrue(client.predict("TEST", new FeatureWindow(), null, List.of(), List.of(), List.of(), false).isEmpty());
-            assertTrue(client.lastError().contains("Invalid real regression response"));
+            assertEquals("Prediction unavailable: IllegalArgumentException", client.lastError());
         } finally { System.clearProperty("ml.base.url"); server.stop(0); }
     }
 

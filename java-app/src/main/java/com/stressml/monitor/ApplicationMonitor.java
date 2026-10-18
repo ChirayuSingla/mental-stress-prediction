@@ -39,5 +39,9 @@ public class ApplicationMonitor {
         return s;
     }
 
+    public synchronized void reset() {
+        switches = 0; secondsByCategory.clear(); lastRawName = null; current = AppCategory.OTHER;
+    }
+
     public record Snapshot(int switches, AppCategory dominant, Map<AppCategory, Double> seconds, double totalSeconds) {}
 }

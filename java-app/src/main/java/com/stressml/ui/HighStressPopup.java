@@ -39,7 +39,7 @@ public class HighStressPopup {
             stage.initStyle(StageStyle.UNDECORATED);
             stage.initModality(Modality.NONE);
             stage.setAlwaysOnTop(true);
-            stage.setTitle("High Stress Alert");
+            stage.setTitle("User Score Alert");
 
             VBox root = new VBox(12);
             root.getStyleClass().addAll("card", "stress-popup-card");
@@ -49,7 +49,7 @@ public class HighStressPopup {
             // Header row with Warning badge and Stress Score
             HBox header = new HBox(8);
             header.setAlignment(Pos.CENTER_LEFT);
-            Label warningBadge = new Label("⚠️  HIGH STRESS DETECTED");
+            Label warningBadge = new Label("⚠️  USER SCORE ALERT");
             warningBadge.getStyleClass().add("popup-warning-badge");
 
             Region spacer = new Region();

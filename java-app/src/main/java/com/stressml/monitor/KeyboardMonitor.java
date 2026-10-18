@@ -24,6 +24,7 @@ public class KeyboardMonitor implements NativeKeyListener {
             NativeKeyEvent.VC_Y, NativeKeyEvent.VC_Z);
 
     public KeyboardMonitor(KeyboardStats stats) { this.stats = stats; }
+    public void reset() { pressTimes.clear(); }
 
     @Override
     public void nativeKeyPressed(NativeKeyEvent e) {

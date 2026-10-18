@@ -31,6 +31,7 @@ public class MonitoringService {
 
     public synchronized void start() {
         if (active) return;
+        keyboardMonitor.reset(); mouseMonitor.reset(); aggregator.discardWindow();
         try {
             java.util.logging.Logger.getLogger(GlobalScreen.class.getPackage().getName()).setLevel(Level.WARNING);
             GlobalScreen.registerNativeHook();

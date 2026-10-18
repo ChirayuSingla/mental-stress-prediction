@@ -31,7 +31,8 @@ class FeatureAggregatorTest {
         // SWELL-KW multimodal features verification
         assertEquals(300.0, w.snKeyStrokes, 1e-9);
         assertEquals(15.0, w.snErrorKeys, 1e-9);
-        assertEquals(16, w.toSwellFeatureMap().size());
+        assertEquals(15, w.toSwellFeatureMap().size());
+        assertFalse(w.toSwellFeatureMap().containsKey("SnMouseDistance"));
         assertTrue(w.toFeatureMap().containsKey("SnKeyStrokes"));
         assertFalse(w.toSwellFeatureMap().containsKey("SnMouseAct"));
         assertFalse(w.toSwellFeatureMap().containsKey("SnTabfocusChange"));

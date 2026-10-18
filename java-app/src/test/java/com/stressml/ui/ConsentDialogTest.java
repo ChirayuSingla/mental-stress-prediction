@@ -15,7 +15,7 @@ class ConsentDialogTest {
     @EnabledIfSystemProperty(named="javafx.ui.tests", matches="true")
     void ownerSceneIsSafeAndDeclineClosesDialog() throws Exception {
         CompletableFuture<Void> done = new CompletableFuture<>();
-        Platform.startup(() -> {
+        com.stressml.FxTestSupport.run(() -> {
             try {
                 Stage owner = new Stage(); owner.setScene(new Scene(new StackPane()));
                 var dialog = ConsentDialog.createDialog(owner);
@@ -27,6 +27,5 @@ class ConsentDialogTest {
             } catch (Throwable t) { done.completeExceptionally(t); }
         });
         done.get(15, TimeUnit.SECONDS);
-        Platform.exit();
     }
 }

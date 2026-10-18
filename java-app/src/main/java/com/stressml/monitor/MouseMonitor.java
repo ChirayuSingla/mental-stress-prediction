@@ -10,6 +10,7 @@ public class MouseMonitor implements NativeMouseInputListener, NativeMouseWheelL
     private final MouseStats stats;
     private boolean dragging;
     public MouseMonitor(MouseStats stats) { this.stats = stats; }
+    public void reset() { dragging = false; }
 
     @Override
     public void nativeMouseMoved(NativeMouseEvent e) {

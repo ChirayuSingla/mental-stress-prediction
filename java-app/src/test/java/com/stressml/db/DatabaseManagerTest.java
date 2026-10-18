@@ -11,6 +11,48 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class DatabaseManagerTest {
     @Test
+    @org.junit.jupiter.api.condition.EnabledIfSystemProperty(named="stressml.integration", matches="true")
+    void actualApiDemoCyclePersistsWithoutTouchingPersonalDatabase() throws Exception {
+        var config=AppConfig.load();
+        try (DatabaseManager db=new DatabaseManager(config)) {
+            db.initialiseSchemaIfEmbedded();
+            int user=new UserRepository(db).findOrCreate("EXPLICIT_DEMO_FIXTURE");
+            int session=new SessionRepository(db).start(user,true,true);
+            var w=new com.stressml.demo.SyntheticDataGenerator(60).next(true);w.sessionId=session;
+            new FeatureRepository(db).insert(w);
+            new PredictionRepository(db).sessionScores(user,10);
+            var result=new com.stressml.ml.MlClient(config).predict("EXPLICIT_DEMO_FIXTURE",w,null,
+                    java.util.List.of(),java.util.List.of(),java.util.List.of(),true);
+            assertTrue(result.isPresent());
+            new PredictionRepository(db).insert(result.orElseThrow());
+        }
+    }
+    @Test void deletionCascadesOnlyForTheChosenParticipantAndDemoNeverEntersRealHistory() throws Exception {
+        try (DatabaseManager db = new DatabaseManager(AppConfig.load())) {
+            db.initialiseSchemaIfEmbedded();
+            var users=new UserRepository(db); var sessions=new SessionRepository(db);
+            int first=users.findOrCreate("DELETE_TEST"), sentinel=users.findOrCreate("KEEP_TEST");
+            for (int user : new int[]{first,sentinel}) {
+                int session=sessions.start(user,false,user==sentinel);
+                var w=new com.stressml.model.FeatureWindow(); w.sessionId=session; w.windowStart=java.time.LocalDateTime.now();
+                new FeatureRepository(db).insert(w);
+                sessions.saveSelfReport(session,2,"ORDINAL-3");
+                assertNull(sessions.recent(user,1).get(0).endedAt);
+                sessions.end(session,0,null,null);
+                assertEquals(2,sessions.recent(user,1).get(0).selfReportStress);
+                var p=new com.stressml.model.Prediction();p.featureId=w.id;p.stressScore=3.;p.modelName="Fixture";
+                p.recommendations=java.util.List.of("fixture");new PredictionRepository(db).insert(p);
+            }
+            assertTrue(new PredictionRepository(db).sessionScores(sentinel,10).isEmpty());
+            users.deleteAllData(first);
+            try(var c=db.connection();var st=c.createStatement()) {
+                for (String table : new String[]{"users","sessions","behavior_features","swell_feature_windows","predictions","swell_prediction_inputs","recommendations"})
+                    try(var rs=st.executeQuery("SELECT COUNT(*) FROM "+table)){assertTrue(rs.next());assertEquals(1,rs.getInt(1),table);}
+            }
+        }
+    }
+
+    @Test
     void retainsMeasuredInputsAndRegressionScale() throws Exception {
         try (DatabaseManager db = new DatabaseManager(AppConfig.load())) {
             db.initialiseSchemaIfEmbedded();

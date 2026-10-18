@@ -21,7 +21,7 @@ public class ReportsView extends VBox {
         Button daily = new Button("Daily report"), weekly = new Button("Weekly report"), csv = new Button("Export measured features (CSV)");
         daily.getStyleClass().add("primary"); weekly.getStyleClass().add("primary"); csv.getStyleClass().add("primary");
         daily.setOnAction(e -> run(out, () -> gen.dailyReport(LocalDate.now(), ctx.predictions.sessionScores(ctx.userId(), 10), ctx.sessions.recent(ctx.userId(), 50), ctx.isDemoMode())));
-        weekly.setOnAction(e -> run(out, () -> gen.weeklyReport(ctx.predictions.sessionScores(ctx.userId(), 20), ctx.isDemoMode())));
+        weekly.setOnAction(e -> run(out, () -> gen.weeklyReport(ctx.predictions.sessionScores(ctx.userId(), 20), ctx.isDemoMode(), ctx.config.highStressThreshold())));
         csv.setOnAction(e -> {
             FileChooser fc = new FileChooser(); fc.setInitialFileName((ctx.isDemoMode() ? "demo_" : "") + "behaviour_export.csv");
             File f = fc.showSaveDialog(getScene().getWindow());

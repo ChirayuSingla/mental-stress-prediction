@@ -11,6 +11,7 @@ public class SettingsView extends VBox {
         getChildren().add(UiKit.title("Settings"));
 
         CheckBox monitor = new CheckBox("Monitoring active"); monitor.setSelected(ctx.monitoringActive.get());
+        ctx.monitoringActive.addListener((o, old, active) -> monitor.setSelected(active));
         monitor.setOnAction(e -> ctx.setMonitoring(monitor.isSelected()));
         VBox monCard = new VBox(6, new Label("Monitoring"), monitor, new Label("Mode: " + (ctx.isDemoMode() ? "DEMO (synthetic data)" : "REAL-DATA (live behavioural metadata)")));
         monCard.getStyleClass().add("card");
@@ -23,9 +24,6 @@ public class SettingsView extends VBox {
 
         Label calib = new Label(); calib.textProperty().bind(ctx.calibrationStatus);
         VBox calibCard = new VBox(6, new Label("Personal baseline calibration"), calib); calibCard.getStyleClass().add("card");
-
-        Spinner<Integer> breakEvery = new Spinner<>(15, 180, 45, 5);
-        VBox breakCard = new VBox(6, new Label("Preferred break reminder interval (minutes)"), breakEvery); breakCard.getStyleClass().add("card");
 
         Label bgInfo = new Label("""
                 Background Operation & System Tray:
@@ -48,6 +46,6 @@ public class SettingsView extends VBox {
             if (a.showAndWait().orElse(ButtonType.NO) == ButtonType.YES) ctx.deleteAllData();
         });
         VBox delCard = new VBox(6, new Label("Data deletion"), delete); delCard.getStyleClass().add("card");
-        getChildren().addAll(monCard, bgCard, privCard, calibCard, breakCard, delCard);
+        getChildren().addAll(monCard, bgCard, privCard, calibCard, delCard);
     }
 }

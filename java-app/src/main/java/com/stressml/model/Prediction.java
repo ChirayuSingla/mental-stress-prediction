@@ -18,6 +18,7 @@ public class Prediction {
     public String modelName = "n/a";
     public String dataMode = "n/a";
     public boolean demoMode;
+    public String predictionKind = "behavioral_regression";
     public java.util.Map<String, Double> inputFeatures = java.util.Map.of();
     public int observationWindows = 1;
     public List<Factor> topFactors = new ArrayList<>();

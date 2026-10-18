@@ -100,6 +100,8 @@ def preprocess_swell(
         print(f"      [WARNING] Found {n_missing} missing Stress values in active task rows; dropping.")
         df_valid = df_valid.dropna(subset=[TARGET])
 
+    if df_valid.empty:
+        raise ValueError("No labeled active-task observations")
     stress_min, stress_max = df_valid[TARGET].min(), df_valid[TARGET].max()
     print(f"      Stress score range: [{stress_min:.1f}, {stress_max:.1f}] (mean: {df_valid[TARGET].mean():.2f})")
     if stress_min < 0.0 or stress_max > 10.0:

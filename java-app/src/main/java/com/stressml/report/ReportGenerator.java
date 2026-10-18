@@ -19,13 +19,13 @@ public class ReportGenerator {
         String[] columns = {"SnKeyStrokes", "SnChars", "SnSpecialKeys", "SnDirectionKeys",
                 "SnErrorKeys", "SnShortcutKeys", "SnSpaces", "CharactersRatio", "ErrorKeyRatio",
                 "SnLeftClicked", "SnRightClicked", "SnDoubleClicked", "SnWheel", "SnDragged",
-                "SnMouseDistance", "SnAppChange"};
+                "SnAppChange"};
         try (PrintWriter pw = new PrintWriter(Files.newBufferedWriter(path))) {
             pw.println(String.join(",", FeatureWindow.CSV_HEADER) + ",is_synthetic,data_source");
             int idx = 0;
             for (FeatureWindow w : windows) {
                 java.util.List<String> row = new java.util.ArrayList<>();
-                row.add(participantCode.replace(",", "_"));
+                row.add(csv(participantCode));
                 row.add(String.valueOf(w.sessionId)); row.add(w.windowStart.toString()); row.add(String.valueOf(idx++));
                 java.util.Map<String, Double> measured = w.toSwellFeatureMap();
                 for (String column : columns) row.add(measured.containsKey(column) ? f(measured.get(column)) : "");
@@ -41,22 +41,28 @@ public class ReportGenerator {
         if (demo) sb.append("*** DEMO MODE — SYNTHETIC DATA ***\n");
         sb.append("Daily report — ").append(day.format(DateTimeFormatter.ISO_DATE)).append('\n');
         sb.append("Sessions today: ").append(sessions.stream().filter(s -> s.startedAt.toLocalDate().equals(day)).count()).append('\n');
-        double avg = sessionScores.stream().mapToDouble(a -> a[1]).average().orElse(Double.NaN);
-        sb.append(String.format(Locale.ROOT, "Average stress score (recent sessions): %.1f / 10%n", avg));
+        var dayIds = sessions.stream().filter(s -> s.startedAt.toLocalDate().equals(day)).map(s -> s.id).collect(java.util.stream.Collectors.toSet());
+        double avg = sessionScores.stream().filter(a -> dayIds.contains((int) a[0])).mapToDouble(a -> a[1]).average().orElse(Double.NaN);
+        sb.append(Double.isFinite(avg) ? String.format(Locale.ROOT, "Average questionnaire score (available sessions on this day): %.1f / 10%n", avg) : "No predictions available for this day.\n");
         sb.append("Note: behavioural indicators only — not a medical assessment.\n");
         return sb.toString();
     }
 
     public String weeklyReport(List<double[]> sessionScores, boolean demo) {
+        return weeklyReport(sessionScores, demo, 6.0);
+    }
+
+    public String weeklyReport(List<double[]> sessionScores, boolean demo, double alertPreference) {
         StringBuilder sb = new StringBuilder();
         if (demo) sb.append("*** DEMO MODE — SYNTHETIC DATA ***\n");
         sb.append("Weekly report\n");
         for (double[] s : sessionScores) sb.append(String.format(Locale.ROOT, "Session %d: stress %.1f, fatigue %.1f, breaks %d, duration %.0f min%n",
                 (int) s[0], s[1], s[2], (int) s[3], s[4]));
-        long high = sessionScores.stream().filter(s -> s[1] >= 6).count();
-        sb.append("Sessions above user alert preference (6/10): ").append(high).append(" of ").append(sessionScores.size()).append('\n');
+        long high = sessionScores.stream().filter(s -> s[1] >= alertPreference).count();
+        sb.append("Sessions above user alert preference (").append(alertPreference).append("/10): ").append(high).append(" of ").append(sessionScores.size()).append('\n');
         return sb.toString();
     }
 
     private static String f(double v) { return String.format(Locale.ROOT, "%.4f", v); }
+    private static String csv(String value) { return "\"" + value.replace("\"", "\"\"") + "\""; }
 }

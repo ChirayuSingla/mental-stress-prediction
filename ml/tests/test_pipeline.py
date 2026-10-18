@@ -48,7 +48,7 @@ def test_fatigue_bounds():
 
 def test_burnout_requires_history():
     assert burnout_indicator([5.0], [], [])[1] == 0
-    # SWELL questionnaire scale: score >= 6.0 indicates elevated/high stress
+    # This is a descriptive history average, without a clinical threshold.
     label, score = burnout_indicator([8.0] * 6, [300] * 6, [0] * 6)
     assert score == 80 and "heuristic" in label
 
@@ -89,30 +89,11 @@ def test_candidate_regressors_fit():
         assert np.isfinite(preds).all()
 
 
-def test_api_health_and_predict():
-    from api.server import health, predict, PredictRequest, _state
-    import joblib, json
-
-    # Ensure model is in state for testing
-    model_file = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "models", "stress_model.joblib")
-    meta_file = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "models", "model_meta.json")
-    if os.path.exists(model_file) and os.path.exists(meta_file):
-        _state["model"] = joblib.load(model_file)
-        _state["meta"] = json.load(open(meta_file))
-        _state["recommender"] = RuleBasedRecommender()
-        from api.recommendation import GeminiRephraser
-        _state["rephraser"] = GeminiRephraser(None)
-
-    h = health()
-    assert h["status"] == "ok"
-
-    if h["model_loaded"]:
-        feats = {f: 5.0 for f in SWELL_ALL}
-        feats["ErrorKeyRatio"] = 0.1
-        feats["SnKeyStrokes"] = 60.0
-        req = PredictRequest(participant_id="PP1", features=feats, demo_mode=False)
-        p = predict(req)
-        assert 0.0 <= p.stress_score <= 10.0
-        assert len(p.top_factors) > 0
-        assert len(p.recommendations) > 0
-        assert p.data_mode == "REAL_SWELL"
+def test_api_health_and_predict(trained_artifacts):
+    from fastapi.testclient import TestClient
+    X, _, _ = trained_artifacts
+    with TestClient(app) as client:
+        assert client.get("/health").json()["model_loaded"]
+        result = client.post("/predict", json={"features": X.iloc[0].to_dict()})
+        assert result.status_code == 200
+        assert result.json()["data_mode"] == "REAL_SWELL"

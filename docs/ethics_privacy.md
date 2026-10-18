@@ -6,4 +6,4 @@ The API runs on loopback and external Gemini rephrasing is disabled. Monitoring 
 
 This project is for noncommercial research under the SWELL download agreement. Preserve dataset attribution; do not redistribute raw data, derived participant records, local databases or models. The MIT source-code license is separate from dataset rights. Obtain appropriate consent and institutional review for volunteer studies.
 
-Predictions estimate questionnaire scores. They do not diagnose stress or other conditions. Current grouped-CV results are worse than the mean-score baseline. UI alert preferences and activity/history heuristics have no demonstrated clinical validity.
+Predictions estimate questionnaire scores. They do not diagnose stress or other conditions. Nested grouped selection currently chooses a fitted population mean reference because useful individualized prediction has not been demonstrated. It has no behavioral contributions and does not trigger individual score alerts. UI alert preferences and activity/history heuristics have no demonstrated clinical validity.

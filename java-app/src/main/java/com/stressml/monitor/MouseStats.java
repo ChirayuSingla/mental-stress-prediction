@@ -55,6 +55,10 @@ public class MouseStats {
     }
 
     public synchronized long lastActivity() { return lastActivity; }
+    public synchronized void reset() {
+        drain(); lastX = lastClickX = lastAngle = Double.NaN;
+        lastSpeed = -1; lastMoveTime = lastActivity = -1;
+    }
 
     public synchronized Snapshot drain() {
         Snapshot s = new Snapshot(distance, new ArrayList<>(speeds), accelSamples == 0 ? 0 : accelSum / accelSamples,

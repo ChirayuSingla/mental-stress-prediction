@@ -50,7 +50,8 @@ def test_model_checksum_mismatch_is_rejected(tmp_path):
     with pytest.raises(ValueError, match="checksum"):
         load_artifacts(tmp_path)
 
-def test_http_prediction_and_invalid_requests(real_data):
+def test_http_prediction_and_invalid_requests(trained_artifacts):
+    real_data, _, _ = trained_artifacts  # explicit isolated API fixture
     with TestClient(app) as client:
         health = client.get("/health").json()
         assert health["model_loaded"] and health["schema_version"] == 3
@@ -66,6 +67,11 @@ def test_http_prediction_and_invalid_requests(real_data):
                    "baseline": {"SnChars": {"mean": 9999, "std": 1}}}).json()
         assert changed["raw_stress_score"] == result["raw_stress_score"]
         assert client.post("/predict", json={"features": {}}).status_code == 422
+        assert client.post("/predict", json={**body, "features": {**features, "unknown": 1}}).status_code == 422
+        assert client.post("/predict", json={**body, "features": {**features, "CharactersRatio": 1.1}}).status_code == 422
+        for invalid in (True, "1", None):
+            invalid_features = {**features, next(iter(features)): invalid}
+            assert client.post("/predict", json={**body, "features": invalid_features}).status_code == 422
         features[next(iter(features))] = -1
         assert client.post("/predict", json=body).status_code == 422
         assert client.post("/predict", content='{"features":{"SnChars":NaN}}',
@@ -77,3 +83,43 @@ def test_missing_model_returns_503(tmp_path, monkeypatch):
     with TestClient(app) as client:
         assert not client.get("/health").json()["model_loaded"]
         assert client.post("/predict", json={"features": {}}).status_code == 503
+
+def test_reordered_feature_metadata_is_rejected(trained_artifacts):
+    _, folder, meta = trained_artifacts
+    meta["feature_columns"] = list(reversed(meta["feature_columns"]))
+    (folder / "model_meta.json").write_text(json.dumps(meta))
+    with pytest.raises(ValueError, match="order"):
+        load_artifacts(folder)
+
+def test_corrupt_model_with_matching_hash_is_unavailable(trained_artifacts):
+    import hashlib
+    import api.server as server
+    _, folder, meta = trained_artifacts
+    path = folder / "stress_model.joblib"
+    path.write_bytes(b"not a serialized model")
+    meta["model_sha256"] = hashlib.sha256(path.read_bytes()).hexdigest()
+    (folder / "model_meta.json").write_text(json.dumps(meta))
+    with TestClient(app) as client:
+        assert client.get("/health").json()["status"] == "degraded"
+        assert client.post("/predict", json={"features": {}}).status_code == 503
+
+def test_trained_reference_is_explicit_and_has_no_behavioral_factors(trained_artifacts):
+    import hashlib, joblib
+    from training.nested import deployment_candidates
+    X, folder, meta = trained_artifacts
+    model = deployment_candidates()["DummyMean"].fit(X, [1., 2., 3., 4., 5., 6.])
+    path = folder / "stress_model.joblib"
+    joblib.dump(model, path)
+    meta.update(model="DummyMean", prediction_kind="reference_baseline",
+                model_sha256=hashlib.sha256(path.read_bytes()).hexdigest())
+    (folder / "model_meta.json").write_text(json.dumps(meta))
+    with TestClient(app) as client:
+        response = client.post("/predict", json={"features": X.iloc[0].to_dict()})
+        assert response.status_code == 200
+        result = response.json()
+        assert result["stress_score"] == 3.5
+        assert result["prediction_kind"] == "reference_baseline"
+        assert result["explanation_method"] == "population training-target reference; no behavioral feature attribution"
+        assert "not individualized" in result["stress_label"]
+        assert result["top_factors"] == []
+        assert result["burnout_risk"] == "Insufficient history"

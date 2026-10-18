@@ -21,10 +21,12 @@ import java.util.*;
 /** REST client for the Python prediction service (ml/api/server.py). */
 public class MlClient {
     private static final Logger log = LoggerFactory.getLogger(MlClient.class);
-    private final HttpClient http = HttpClient.newBuilder()
-            .version(HttpClient.Version.HTTP_1_1)
-            .connectTimeout(Duration.ofSeconds(3))
-            .build();
+    private HttpClient http;
+    private synchronized HttpClient http() {
+        if (http == null) http = HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1)
+                .connectTimeout(Duration.ofSeconds(3)).build();
+        return http;
+    }
     private final Gson gson = new GsonBuilder().create();
     private final String baseUrl; private final int timeoutMs;
     private volatile String lastError = "Waiting for first completed measurement window";
@@ -34,7 +36,7 @@ public class MlClient {
 
     public boolean isHealthy() {
         try {
-            HttpResponse<String> r = http.send(HttpRequest.newBuilder(URI.create(baseUrl + "/health")).timeout(Duration.ofMillis(timeoutMs)).GET().build(),
+            HttpResponse<String> r = http().send(HttpRequest.newBuilder(URI.create(baseUrl + "/health")).timeout(Duration.ofMillis(timeoutMs)).GET().build(),
                     HttpResponse.BodyHandlers.ofString());
             JsonObject status = gson.fromJson(r.body(), JsonObject.class);
             return r.statusCode() == 200 && status.get("model_loaded").getAsBoolean()
@@ -53,9 +55,10 @@ public class MlClient {
         try {
             HttpRequest req = HttpRequest.newBuilder(URI.create(baseUrl + "/predict")).timeout(Duration.ofMillis(timeoutMs))
                     .header("Content-Type", "application/json").POST(HttpRequest.BodyPublishers.ofString(gson.toJson(body))).build();
-            HttpResponse<String> r = http.send(req, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> r = http().send(req, HttpResponse.BodyHandlers.ofString());
             if (r.statusCode() != 200) {
-                lastError = "ML service HTTP " + r.statusCode() + ": " + r.body();
+                lastError = "ML service HTTP " + r.statusCode() +
+                        (r.statusCode() == 503 ? ": trained model unavailable" : ": prediction request rejected");
                 log.warn("{}", lastError); return Optional.empty();
             }
             Prediction result = parse(r.body(), w.id);
@@ -66,7 +69,7 @@ public class MlClient {
             lastError = "Prediction request interrupted";
             return Optional.empty();
         } catch (IOException | RuntimeException e) {
-            lastError = "Prediction unavailable: " + e.getClass().getSimpleName() + ": " + e.getMessage();
+            lastError = "Prediction unavailable: " + e.getClass().getSimpleName();
             log.warn("{}", lastError);
             return Optional.empty();
         }
@@ -96,6 +99,7 @@ public class MlClient {
         p.modelName = o.has("model_name") ? o.get("model_name").getAsString() : "n/a";
         p.dataMode = o.has("data_mode") ? o.get("data_mode").getAsString() : "REAL_SWELL";
         p.demoMode = o.has("demo_mode") && o.get("demo_mode").getAsBoolean();
+        p.predictionKind = o.has("prediction_kind") ? o.get("prediction_kind").getAsString() : "behavioral_regression";
         if (o.has("top_factors") && o.get("top_factors").isJsonArray()) {
             o.getAsJsonArray("top_factors").forEach(el -> {
                 JsonObject f = el.getAsJsonObject(); Prediction.Factor fac = new Prediction.Factor();

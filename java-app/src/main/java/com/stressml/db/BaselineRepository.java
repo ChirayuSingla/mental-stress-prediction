@@ -11,6 +11,7 @@ public class BaselineRepository {
 
     public void save(int userId, BaselineProfile p) throws SQLException {
         try (Connection c = db.connection()) {
+            c.setAutoCommit(false);
             try (PreparedStatement del = c.prepareStatement("DELETE FROM baseline_profiles WHERE user_id=?")) { del.setInt(1, userId); del.executeUpdate(); }
             try (PreparedStatement ps = c.prepareStatement("INSERT INTO baseline_profiles (user_id, feature_name, mean_value, median_value, std_value, " +
                     "low_value, high_value, sample_count) VALUES (?,?,?,?,?,?,?,?)")) {
@@ -21,6 +22,7 @@ public class BaselineRepository {
                 }
                 ps.executeBatch();
             }
+            c.commit();
         }
     }
 

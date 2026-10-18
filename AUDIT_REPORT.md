@@ -1,3 +1,5 @@
+> Historical first-pass report. Deployment/evaluation statements below are superseded by [VALIDATION_REPORT.md](VALIDATION_REPORT.md) and the current README.
+
 # Audit, repair and execution report — 18 October 2026
 
 ## Verified outcome

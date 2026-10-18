@@ -8,10 +8,11 @@ from contextlib import asynccontextmanager
 from typing import Dict, List, Optional
 import joblib
 import numpy as np
+import pandas as pd
 from fastapi import FastAPI, HTTPException
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StrictFloat
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from preprocessing.features import SWELL_ALL, FEATURE_DISPLAY_NAMES
 from api.recommendation import RuleBasedRecommender, GeminiRephraser
@@ -33,7 +34,9 @@ def load_artifacts(directory):
     model = joblib.load(model_file)
     if model.n_features_in_ != len(cols):
         raise ValueError("Model feature count differs from metadata")
-    if not np.isfinite(model.predict(np.zeros((1, len(cols))))).all():
+    if list(getattr(model, "feature_names_in_", [])) != cols:
+        raise ValueError("Model feature order differs from metadata; retrain with named inputs")
+    if not np.isfinite(model.predict(pd.DataFrame(np.zeros((1, len(cols))), columns=cols))).all():
         raise ValueError("Model produced a nonfinite validation prediction")
     return model, meta
 
@@ -71,7 +74,7 @@ class BaselineStat(BaseModel):
 class PredictRequest(BaseModel):
     model_config = ConfigDict(allow_inf_nan=False, extra="forbid")
     participant_id: str = "P001"
-    features: Dict[str, float]
+    features: Dict[str, StrictFloat]
     active_app_category: str = "OTHER"
     baseline: Optional[Dict[str, BaselineStat]] = None
     recent_stress_scores: List[float] = Field(default_factory=list)
@@ -99,8 +102,9 @@ class PredictResponse(BaseModel):
     model_name: str
     data_mode: str
     demo_mode: bool
+    prediction_kind: str = "behavioral_regression"
     explanation_method: str = "one-feature replacement with training median; score difference, not SHAP or causality"
-    disclaimer: str = "Exploratory SWELL questionnaire-score estimate; minute-level desktop validity unmeasured. Fatigue/history indicators are unvalidated heuristics. No clinical diagnosis."
+    disclaimer: str = "Exploratory SWELL questionnaire-score estimate; desktop-session validity unmeasured. Fatigue/history indicators are unvalidated heuristics. No clinical diagnosis."
 
 @app.get("/health")
 def health():
@@ -112,6 +116,7 @@ def health():
             "features_count": len(meta.get("feature_columns", [])),
             "feature_columns": meta.get("feature_columns", []),
             "schema_version": meta.get("schema_version"), "gemini_enabled": False,
+            "prediction_kind": meta.get("prediction_kind"), "cv_method": meta.get("cv_method"),
             "load_error": _state.get("load_error")}
 
 def _build_feature_vector(req):
@@ -119,19 +124,26 @@ def _build_feature_vector(req):
     missing = [c for c in cols if c not in req.features]
     if missing:
         raise HTTPException(422, detail={"missing_features": missing})
+    extra = sorted(set(req.features) - set(cols))
+    if extra:
+        raise HTTPException(422, detail={"unexpected_features": extra})
     values = np.array([[req.features[c] for c in cols]], dtype=float)
     if not np.isfinite(values).all() or (values < 0).any():
         raise HTTPException(422, detail="Features must be finite nonnegative measurements")
-    return values, {c: req.features[c] for c in cols}, cols
+    if req.features.get("CharactersRatio", 0) > 1:
+        raise HTTPException(422, detail="CharactersRatio must be in [0, 1]")
+    return pd.DataFrame(values, columns=cols), {c: req.features[c] for c in cols}, cols
 
 def _explain_regression(X, f, cols, score):
     # Actual prediction sensitivity in questionnaire-score units; no invented signs.
     model = _state["model"]
+    if _state["meta"].get("prediction_kind") == "reference_baseline":
+        return []  # A constant trained reference has no behavioral attribution.
     medians = model.named_steps["imputer"].statistics_
-    variants = np.repeat(X, len(cols), axis=0)
+    variants = np.repeat(X.to_numpy(), len(cols), axis=0)
     for i in range(len(cols)):
         variants[i, i] = medians[i]
-    contributions = score - model.predict(variants)
+    contributions = score - model.predict(pd.DataFrame(variants, columns=cols))
     order = np.argsort(-np.abs(contributions))[:5]
     return [Factor(feature=cols[i], contribution=round(float(contributions[i]), 4),
                    direction="raises" if contributions[i] > 0 else "lowers" if contributions[i] < 0 else "unchanged",
@@ -159,13 +171,18 @@ def predict(req: PredictRequest):
     if not np.isfinite(raw):
         raise HTTPException(500, detail="Model produced a nonfinite score")
     score = round(float(np.clip(raw, 0, 10)), 2)
-    label, history = burnout_indicator(req.recent_stress_scores, req.recent_session_durations_min, req.recent_break_counts)
-    return PredictResponse(stress_label=f"Estimated questionnaire score: {score:.1f} / 10",
+    history_label, history = burnout_indicator(req.recent_stress_scores, req.recent_session_durations_min, req.recent_break_counts)
+    kind = _state["meta"].get("prediction_kind", "behavioral_regression")
+    score_label = "Population reference (not individualized)" if kind == "reference_baseline" else "Estimated questionnaire score"
+    return PredictResponse(stress_label=f"{score_label}: {score:.1f} / 10",
                            stress_score=score, raw_stress_score=raw,
-                           fatigue_score=fatigue_score(features), burnout_risk=label, burnout_score=history,
+                           fatigue_score=fatigue_score(features), burnout_risk=history_label, burnout_score=history,
                            top_factors=_explain_regression(X, features, cols, raw),
                            recommendations=["This is an exploratory questionnaire-score estimate. Take regular breaks and use your own assessment of how you feel."],
-                           model_name=_state["meta"]["model"], data_mode="REAL_SWELL", demo_mode=req.demo_mode)
+                           model_name=_state["meta"]["model"], data_mode="REAL_SWELL", demo_mode=req.demo_mode,
+                           prediction_kind=kind,
+                           explanation_method=("population training-target reference; no behavioral feature attribution"
+                                               if kind == "reference_baseline" else PredictResponse.model_fields["explanation_method"].default))
 
 class RecommendRequest(BaseModel):
     stress_class: int = -1

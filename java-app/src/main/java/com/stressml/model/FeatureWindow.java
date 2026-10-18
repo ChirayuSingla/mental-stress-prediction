@@ -110,7 +110,11 @@ public class FeatureWindow {
     }
 
     public Map<String, Double> toSwellFeatureMap() {
-        if (recordedSwellFeatures != null) return new LinkedHashMap<>(recordedSwellFeatures);
+        if (recordedSwellFeatures != null) {
+            Map<String, Double> measured = new LinkedHashMap<>(recordedSwellFeatures);
+            measured.keySet().removeAll(java.util.Set.of("SnMouseAct", "SnTabfocusChange", "SnMouseDistance"));
+            return measured;
+        }
         Map<String, Double> m = new LinkedHashMap<>();
         m.put("SnKeyStrokes", snKeyStrokes);
         m.put("SnChars", snChars);
@@ -127,7 +131,6 @@ public class FeatureWindow {
         m.put("SnDoubleClicked", snDoubleClicked);
         m.put("SnWheel", snWheel);
         m.put("SnDragged", snDragged);
-        m.put("SnMouseDistance", snMouseDistance);
         m.put("SnAppChange", snAppChange);
         // Unsupported in-app focus aggregate omitted.
         return m;
@@ -139,6 +142,6 @@ public class FeatureWindow {
     public static final String[] CSV_HEADER = {"participant_id", "session_id", "timestamp", "window_index",
             "SnKeyStrokes", "SnChars", "SnSpecialKeys", "SnDirectionKeys", "SnErrorKeys", "SnShortcutKeys",
             "SnSpaces", "CharactersRatio", "ErrorKeyRatio", "SnLeftClicked", "SnRightClicked",
-            "SnDoubleClicked", "SnWheel", "SnDragged", "SnMouseDistance", "SnAppChange",
+            "SnDoubleClicked", "SnWheel", "SnDragged", "SnAppChange",
             "self_report_ordinal3"};
 }

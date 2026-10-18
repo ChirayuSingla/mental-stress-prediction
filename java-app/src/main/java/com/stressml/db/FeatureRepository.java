@@ -54,6 +54,13 @@ public class FeatureRepository {
         }
     }
 
+    public void saveOrdinalSelfReport(long featureId, int sessionId, int value) throws SQLException {
+        try (Connection c = db.connection(); PreparedStatement ps = c.prepareStatement(
+                "UPDATE behavior_features SET stress_label=? WHERE feature_id=? AND session_id=?")) {
+            ps.setInt(1, value); ps.setLong(2, featureId); ps.setInt(3, sessionId); ps.executeUpdate();
+        }
+    }
+
     public List<FeatureWindow> byUser(int userId) throws SQLException {
         try (Connection c = db.connection(); PreparedStatement ps = c.prepareStatement(SELECT +
                 "WHERE session_id IN (SELECT session_id FROM sessions WHERE user_id=?) ORDER BY window_start")) {

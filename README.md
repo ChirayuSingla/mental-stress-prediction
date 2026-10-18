@@ -1,143 +1,155 @@
-# Mental Stress Prediction Using Typing, Mouse and Application Interaction
+# Mental Stress Prediction — SWELL research application
 
-Java 17/JavaFX desktop collector, local H2 storage, and a Python/FastAPI regression service using the real SWELL-KW workbook. The output estimates a 0–10 questionnaire score. It does not clinically diagnose stress.
+Java 17/JavaFX collector + local H2 database + Python/FastAPI. The target is SWELL's continuous 0–10 questionnaire score. It is not a clinical diagnosis or a probability of being stressed.
 
-**Current evidence:** all evaluated learned models performed worse than the training-fold mean-score baseline on participant-grouped cross-validation. This is an exploratory research application, not a validated stress detector. Desktop sessions differ from SWELL condition blocks; transport/integration success is not evidence of predictive validity.
+**Current result:** nested participant-grouped validation does not establish useful individualized prediction. Conservative model selection chooses a trained population mean reference. The API and dashboard explicitly identify this as a reference independent of current behavior; it has no behavioral feature contributions and does not trigger individual score alerts. No fixed score is hardcoded: the reference is fitted from the real aggregated SWELL training targets.
 
-## Reproduce on this Windows computer
+See [VALIDATION_REPORT.md](VALIDATION_REPORT.md) for this pass's actual results and remaining limitations. [AUDIT_REPORT.md](AUDIT_REPORT.md) records the earlier repair pass and its superseded deployment metrics.
 
-Project root:
+## Setup and launch
 
-    C:\Users\chirayu singla\OneDrive\Desktop\MentalStressPrediction\mental-stress-prediction\mental-stress-prediction
+Verified platform: Windows x64, Python 3.10.11, Java 17, Maven 3.9, JavaFX 21. The existing ml/.venv is preserved. requirements-lock.txt pins the 59 installed distributions used by the tested fresh environment. requirements.txt states compatible minimum dependencies; use the lock file to reproduce this run.
 
-Use the existing ml/.venv. Requirements include openpyxl for Excel and httpx for HTTP contract tests.
+From the repository root:
 
     cd "C:\Users\chirayu singla\OneDrive\Desktop\MentalStressPrediction\mental-stress-prediction\mental-stress-prediction"
-    .\ml\.venv\Scripts\python.exe -m pip install -r .\ml\requirements.txt
-    cd ml
-    .\.venv\Scripts\python.exe preprocessing/preprocess_swell.py --input "C:\Users\chirayu singla\Downloads\0_SWELL\Behavioral-features - per minute.xlsx" --save-minutes
-    .\.venv\Scripts\python.exe training/train.py
-    .\.venv\Scripts\python.exe evaluation/run_experiments.py
-    .\.venv\Scripts\python.exe -m pytest tests -q
-    .\.venv\Scripts\uvicorn.exe api.server:app --host 127.0.0.1 --port 8000
+    # Only if ml/.venv does not exist: python -m venv ml/.venv
+    .\ml\.venv\Scripts\python.exe -m pip install -r ml/requirements-lock.txt
+    .\ml\.venv\Scripts\python.exe ml/preprocessing/preprocess_swell.py --input "C:\Users\chirayu singla\Downloads\0_SWELL\Behavioral-features - per minute.xlsx" --save-minutes
+    .\ml\.venv\Scripts\python.exe ml/training/train.py
+    .\ml\.venv\Scripts\python.exe ml/evaluation/run_experiments.py
+    .\ml\.venv\Scripts\python.exe -m pytest ml/tests -q
+    .\scripts\run-backend.ps1
 
-Preprocess --out is a DIRECTORY, not a CSV filename. Default output is ml/data/processed/swell_aggregated.csv. --save-minutes writes only identifiers, interaction features and target to swell_minutes_clean.csv. No physiological, facial or Kinect features enter supervised training.
-
-Training writes ml/models/stress_model.joblib and model_meta.json, the exact paths loaded by the API. A preprocessing audit links the processed CSV to the raw workbook using SHA-256. Training refuses a provenance mismatch, duplicate participant/block/condition observations, synthetic markers, relaxation conditions, missing targets or invalid values. Explicit invalid data paths fail instead of selecting another dataset.
-
-In a second PowerShell terminal:
+The backend binds only to 127.0.0.1:8000. In a second terminal, from the same root:
 
     $env:JAVA_HOME = "C:\Program Files\Eclipse Adoptium\jdk-17.0.20.101-hotspot"
     $env:Path = "$env:JAVA_HOME\bin;C:\Users\chirayu singla\Downloads\apache-maven-3.9.16-bin\apache-maven-3.9.16\bin;$env:Path"
-    cd "C:\Users\chirayu singla\OneDrive\Desktop\MentalStressPrediction\mental-stress-prediction\mental-stress-prediction\java-app"
-    mvn test
+    .\scripts\run-java.ps1
+
+Accept the dialog yourself to start real collection. The first completed real interval takes 60 seconds. Empty intervals save the measurements but show no prediction. Pause cancels/discards a partial interval; resume waits for a complete new interval.
+
+The scripts select the correct working directories. run-java.ps1 sets a short workspace socket path for the installed JDK's Windows/MSIX socket failure and restores its process environment on exit. It accepts -SocketDirectory for an explicit short writable path. It does not change Windows security settings.
+
+Equivalent direct commands, from the component directories:
+
+    # ml/
+    .\.venv\Scripts\uvicorn.exe api.server:app --host 127.0.0.1 --port 8000
+    # java-app/
     mvn clean javafx:run
 
-Accept consent yourself to start real collection. The first prediction follows a completed 60-second window. Closing the window normally hides it in the tray when supported; Settings → Quit & Exit Application stops monitoring and closes the database.
-
-Real monitoring is the default. APP_MODE=demo explicitly enables synthetic UI demonstration windows with a visible banner. Synthetic data is never used to train or evaluate the real model or as an offline prediction fallback.
-
-## Windows desktop socket workaround
-
-In this desktop execution environment, Java's default socket directory caused “Unable to establish loopback connection” / “Invalid argument: connect”. The installed JDK source and [Oracle networking documentation](https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/net/doc-files/net-properties.html) describe the temporary directory used for Unix-domain sockets.
-
-The verified workaround uses a short, writable directory:
+When running directly in Codex's Windows desktop environment, set the JVM workaround first:
 
     $socketDir = "C:\Users\chirayu singla\OneDrive\Desktop\MentalStressPrediction\.sockets"
     New-Item -ItemType Directory -Force $socketDir | Out-Null
     $env:JAVA_TOOL_OPTIONS = '"-Djdk.net.unixdomain.tmpdir=' + $socketDir + '"'
-    mvn clean javafx:run
 
-This sets a process environment option; it does not change Windows security settings. Sandboxed processes also denied loopback networking; run the local integration tests/server with the execution permission requested by Codex, or from a normal PowerShell terminal.
+## Build and test
 
-## Data and evaluation
+From java-app with backend running and SWELL already preprocessed:
 
-Verified workbook sheet SWELLdata: 3,139 rows, 172 columns, 25 participants. N=1,028, I=996, T=664, R=451 minutes. R has no Stress labels and is excluded. The 2,688 active minutes aggregate to 75 observations grouped by PP, Blok and Condition, with 25 observations per active condition.
+    mvn package "-Dstressml.integration=true" "-Djavafx.ui.tests=true"
 
-Stress is constant within each labeled block. Minute records are not independent labeled samples. Participant ID, block, condition, questionnaire covariates and demographic information are not model features.
+Set the JVM socket option above when needed. Tests use an in-memory H2 database, including deletion tests; they never reset the personal database. The flags enable a real Java HTTP prediction and JavaFX dialog/lifecycle tests. Without them those optional integration/UI tests are explicitly skipped.
 
-All candidate models use a Pipeline containing median imputation, StandardScaler and a regressor. Learned preprocessing fits only in each training fold. Evaluation uses five-fold GroupKFold on participant ID: 60 observations/20 participants train and 15 observations/5 participants test in each fold. Reported MAE, RMSE and R² are pooled out-of-fold metrics.
+From the repository root after packaging:
 
-The same CV is used to compare/select models and feature configurations. These are exploratory selection metrics, not an unbiased nested-CV estimate or an external validation result.
+    .\scripts\run-java.ps1 -Packaged
 
-| Configuration / model | Features | MAE | RMSE | R² |
-|---|---:|---:|---:|---:|
-| Training-fold mean baseline | any | 1.8772 | 2.2850 | -0.0539 |
-| Full interaction / Random Forest, with distance | 18 | 2.0944 | 2.5210 | -0.2827 |
-| Full interaction / Random Forest, without distance | 17 | 2.1038 | 2.5420 | -0.3043 |
-| Desktop / Random Forest, with distance (deployed) | 16 | 2.0866 | 2.5148 | -0.2765 |
-| Desktop / Random Forest, without distance | 15 | 2.1123 | 2.5614 | -0.3242 |
+The shaded JAR merges JDBC service providers so H2 and MySQL are both discoverable. Packaging no longer rewrites the tracked dependency-reduced-pom.xml.
 
-The full table compares Ridge, DecisionTree, RandomForest, SVR, XGBoost, MLP and DummyMean in four configurations. The deployed model is the learned desktop-compatible candidate with lowest observed CV MAE; DummyMean is a comparator and is never a production fallback. Negative R² and the stronger baseline prevent claims of demonstrated useful generalization.
+Explicit demonstrations only:
 
-Outputs under ml/results include exp1_snmousedistance_comparison.csv, selected_oof_predictions.csv, cv_folds.json, modality ablations, held-out-participant permutation importance and descriptive full-data RF/SHAP plots. The descriptive full-data SHAP/impurity plots are not validation metrics.
+    .\scripts\run-java.ps1 -Demo
+    .\scripts\run-java.ps1 -Demo -Packaged
 
-### Missingness and suspicious values
+These show a synthetic-data banner, do not install real collection hooks and mark generated sessions/predictions as demo. They are never used in SWELL evaluation or real participant history.
 
-31 active minute records have missing interaction counters: 21 for PP11/block 3/I and 10 for PP16/block 2/I. Workbook ratio columns contain zeros even when their source counts are missing; preprocessing marks those ratios missing too. Group means use observed minutes. Any entirely missing aggregated feature remains missing for fold-local median imputation; there is no global imputation.
+The audit verified fresh installation in a separate virtual environment/source copy, real Excel preprocessing, training and API tests. Nested metrics, feature order and all 75 refit predictions reproduced exactly. A licensed workbook is still an external prerequisite, intentionally absent from Git.
 
-61 active minutes have ErrorKeyRatio above 1 (maximum 61). This is consistent with corrections divided by a small number of characters plus spaces. Counts reproduce the workbook ratios within its six-decimal precision. Ratios above 1 are retained without clipping; this does not prove the absence of tracker artifacts. A zero denominator maps to 0, matching the supplied workbook. Physiological and other sensor anomalies do not affect this computer-interaction experiment.
+## Real SWELL preprocessing
 
-The workbook labels SnMouseDistance “unreliable?”. Both feature sets are measured and reported. This run slightly favors keeping it for Random Forest; exclusion does not universally improve performance. Resolution, event semantics and polling differences remain deployment limitations.
+The workbook's SWELLdata sheet contains 3,139 rows, 172 columns and 25 participants. N=1,028, I=996, T=664, R=451 minute records. R has no Stress labels and is excluded from supervised fitting. The 2,688 labeled task minutes aggregate by PP/Blok/Condition to 75 observations: 25 each for N/I/T.
 
-## Collector → model → display contract
+Questionnaire scores repeat within each block; minute rows are not independent labeled samples. A block must have one consistent target. The target is renamed stress. Identity, block, experimental condition, demographics, physiological signals, facial features, Kinect and other questionnaire scores are not predictors.
 
-The desktop sends these 16 numeric measurements in a named JSON feature map:
+31 task minutes have missing interaction counters. Derived ratios on those minutes are made missing rather than treating cached zeros as measurements. Means use observed minutes within each block; any all-missing aggregated feature is imputed inside each training fold. 61 ErrorKeyRatio values exceed 1, maximum 61. Small denominators explain how these can occur; supplied outliers are retained without arbitrary clipping. Zero-denominator ratios follow the workbook's zero convention.
+
+Preprocessing saves data/processed/swell_aggregated.csv and preprocessing_audit.json with raw/processed SHA-256 hashes. --out names a directory. --save-minutes saves interaction-only minute data. Training rejects duplicate block observations, synthetic markers, relaxation conditions, invalid labels, invalid feature values and provenance mismatches. Missing paths fail rather than silently substituting data.
+
+## Validation and baseline gap
+
+Final internal estimates use five outer GroupKFold splits by participant and four inner GroupKFold splits on each outer training set. Each outer fold contains 60 observations/20 participants for training and 15 observations/5 participants for testing.
+
+Inside each inner fold, the pipeline fits median imputation, optional log1p transformation, scaling and the regressor. Candidates are mean/median baselines, regularized Ridge, log-Ridge, log-SVR and two Random Forest complexities. The inner rule prefers a baseline when it lies within one standard error of the best inner MAE. Neither outer targets nor outer preprocessing distributions select the model. A test perturbs outer targets and verifies unchanged inner selection and held-out predictions.
+
+| Procedure / fixed comparator | MAE | RMSE | R² |
+|---|---:|---:|---:|
+| Nested conservative selection | 1.8772 | 2.2850 | -0.0539 |
+| Training-fold mean | 1.8772 | 2.2850 | -0.0539 |
+| Training-fold median | 1.8693 | 2.3811 | -0.1443 |
+| Previous RF configuration, reliable desktop subset | 2.1123 | 2.5614 | -0.3242 |
+
+The mean reference was selected in all five outer folds and for the full-data refit. The median has slightly lower MAE in this comparison; the prespecified conservative preference favors the mean when inner differences are within uncertainty. This is not evidence of a useful behavioral predictor.
+
+RF training MAE is 0.8747 versus held-out-participant MAE 2.1123. There are only 75 independent questionnaire observations for 15 deployment features. Participant-mean target SD is 1.6758, versus within-participant residual SD 1.4650. These support concern about overfitting and heterogeneity; they do not establish a causal explanation.
+
+The earlier 28 model/feature comparisons remain exploratory. SnMouseDistance is included/excluded in those comparisons because the workbook marks it “unreliable?”. Production now consistently excludes it, SnMouseAct and SnTabfocusChange. The full research RF comparison with/without distance is MAE 2.0944/2.1038; that small selection result does not validate the sensor or justify individual deployment.
+
+This public dataset was already studied in the previous pass. Nested evaluation is an internal estimate of the specified procedure, not an untouched external validation or a claim that repeated development has no optimism. An independent consented participant cohort remains necessary.
+
+Relevant ignored outputs in ml/results:
+
+- nested_evaluation.json: outer/inner participant membership, rankings, fold metrics and fitting-gap diagnosis.
+- nested_metrics.csv: pooled outer metrics for selection and fixed comparators.
+- development_selection.csv: full-data inner ranking used for the final refit.
+- selected_oof_predictions.csv and cv_folds.json: held-out predictions and fold assignment.
+- exp1_* and experiments 2–5: exploratory comparison/ablation/reliability and descriptive plots.
+
+## Feature and API contract
+
+The deployment feature order contains 15 finite nonnegative numeric measurements:
 
 - Keyboard: SnKeyStrokes, SnChars, SnSpecialKeys, SnDirectionKeys, SnErrorKeys, SnShortcutKeys, SnSpaces, CharactersRatio, ErrorKeyRatio.
-- Mouse: SnLeftClicked, SnRightClicked, SnDoubleClicked, SnWheel, SnDragged, SnMouseDistance.
+- Mouse: SnLeftClicked, SnRightClicked, SnDoubleClicked, SnWheel, SnDragged.
 - Application: SnAppChange.
 
-SnMouseAct and SnTabfocusChange remain in offline research comparisons but are excluded from deployment. Native mouse-move event frequency is not a reliable equivalent of uLog mouse actions. Foreground process polling does not measure application-tab focus, so those values are not fabricated.
+Counts are per-minute rates; ratios are minute ratios. Completed windows are averaged over the current desktop session. Inactive windows remain in these means but do not produce a new current prediction. Desktop sessions still differ from SWELL's controlled condition blocks.
 
-Letter recognition uses explicit native key codes (the codes are not alphabetically contiguous); digits are non-letter keys. Special keys overlap with the specific non-letter categories, matching the workbook definition. Error keys include backspace, delete and Ctrl+Z. Shortcut counts follow the documented Ctrl+C/X/V/Z/S/A and Shift+Tab definitions. Drags count operations instead of every drag-motion callback. Counts and distance are normalized to per-minute rates.
+Native letter codes are explicitly enumerated. Special keys overlap with other non-letter categories. Error keys include backspace/delete/Ctrl+Z; documented shortcuts are counted separately. Drags count operations. Unmeasured tab focus and non-equivalent uLog mouse actions are not fabricated. Distance remains available as a descriptive local geometry metric but is not a model input.
 
-Completed windows are averaged within the current desktop session before prediction, matching SWELL's mean-within-observation aggregation form. Baseline deviations, participant identity, application categories and history do not enter the trained regressor. A desktop session is still not a controlled SWELL condition and its performance remains unmeasured.
+GET /health returns model readiness and ordered columns. POST /predict rejects missing/extra features, nonfinite/negative measurements and CharactersRatio outside [0,1]. Metadata order must exactly equal the fitted pipeline's named columns, and the model checksum/count must match. Missing/corrupt models leave health degraded and predictions return 503.
 
-Raw measured windows and exact session-mean model inputs are saved in additive swell_feature_windows and swell_prediction_inputs tables. Old rows without measurements are not backfilled with invented features.
+A minimal request uses participant_id, features and optionally demo_mode. The score response is continuous; stress_class=-1 and probabilities={} explicitly mean regression. prediction_kind distinguishes behavioral_regression from reference_baseline. The latter is the current fitted model and makes no individual behavioral claim. raw_stress_score is also returned; display bounds are 0–10.
 
-GET /health reports readiness, schema version, ordered feature columns, model and data mode. POST /predict requires every trained feature; omitted, negative or nonfinite measurements fail with HTTP 422. The model/metadata checksum and feature count are validated at startup. An absent or inconsistent real model gives HTTP 503 for predictions.
+Feature-replacement sensitivities for learned models compare real predictions with one feature replaced by its training median. They are not SHAP or causality. A population reference has no behavioral sensitivities. Activity and score-history fields are experimental heuristics, not validated fatigue or burnout assessments.
 
-For a real HTTP smoke test, run from ml while the backend is running:
+Java HTTP calls occur off the FX thread. Timeouts, corrupt responses and unavailable networking/backend produce an unavailable state. No heuristic, random or hardcoded score replaces a failed real model. Late responses are invalidated after pause, deletion or shutdown. Logs avoid request/response bodies and personal scores.
 
-    .\.venv\Scripts\python.exe -c 'import pandas as pd,requests; h=requests.get("http://127.0.0.1:8000/health",timeout=5).json(); d=pd.read_csv("data/processed/swell_aggregated.csv"); print(requests.post("http://127.0.0.1:8000/predict",json={"features":d.iloc[0][h["feature_columns"]].to_dict()},timeout=10).json())'
+## Consent, storage, exports and safety
 
-The response is a continuous score. stress_class=-1 and probabilities={} explicitly mean regression, without invented class thresholds. Raw prediction is also returned; the displayed score is bounded to the questionnaire range. Model sensitivities replace one feature with its training median; they are not SHAP values, causal effects or calibrated probabilities. The optional Java alert threshold is a user preference, not a validated category.
+Consent precedes real hooks and database sessions. The app does not persist typed content, passwords, clipboard contents, screenshots, application titles or executable names. Names are used transiently for category/switch detection; the Linux fallback no longer requests window titles. Gemini transmission is disabled.
 
-The local activity/history heuristics are unvalidated and labeled accordingly. The production API does not transmit scores to Gemini. Personal baseline displays are descriptive only. Low/Moderate/High self-report buttons store an ordinal-3 label, not SWELL's continuous questionnaire target; desktop exports are labeled LIVE_DESKTOP and cannot be silently retrained as SWELL.
+H2 defaults to java-app/data/stressdb. Never delete/recreate this database to fix a run. Raw windows and exact session-mean inputs are stored in additive tables. Schema-3 real history excludes demo sessions, including historical demo records with an old real-model prefix. Legacy records remain stored.
 
-HTTP calls run on the window-cycle worker, not the JavaFX thread. Timeouts, invalid responses and connection failures display an unavailable state and useful error text; no numeric replacement prediction is saved.
+Low/Moderate/High self-reports are ordinal-3, separate from the regression target. They are saved without ending the session, survive shutdown, and export as self_report_ordinal3. Export headers match measured values and source is LIVE_DESKTOP or SYNTHETIC_DEMO; desktop exports cannot be passed off as SWELL training observations. The daily report filters its requested day.
 
-## Tests and verification
+Data deletion requires confirmation and applies only to the selected participant. Tests verify cascades, preservation of another participant and rejection of late in-flight predictions. Restart after deletion to create a new consented session. No deletion test uses the personal database.
 
-    cd ml
-    .\.venv\Scripts\python.exe -m compileall -q api preprocessing training evaluation synthetic tests
-    .\.venv\Scripts\python.exe -m pip check
-    .\.venv\Scripts\python.exe -m pytest tests -q
+The unused break-reminder spinner was removed because it never scheduled reminders. The “I took a break” control records a break and resets the descriptive work streak. Closing the window normally hides it to the tray when supported; Settings → Quit & Exit Application stops hooks and closes the database.
 
-Python: 15 tests passed on the audit run. Tests cover participant separation, duplicate minute/synthetic rejection, fold-local imputation, model checksum mismatch, actual HTTP serialization including NaN errors, missing model readiness and regression contracts.
+Raw/derived datasets, personal databases, models, result artifacts, credentials, local overrides and audit copies are ignored. Both Git index and working tree were inspected; no commit or push was made by this pass. Git history contains the database from the initial commit and requires a separate reviewed history-cleanup decision before publication.
 
-Java unit tests always use an in-memory H2 database. With the backend running and the real workbook preprocessed, run the optional live tests:
+## Troubleshooting and attribution
 
-    cd java-app
-    mvn test "-Dstressml.integration=true" "-Djavafx.ui.tests=true"
+- Missing workbook: supply --input with your licensed local path; no synthetic fallback exists.
+- Degraded health / feature-order error: rerun preprocessing and training using the pinned environment.
+- HTTP 422: match /health feature_columns exactly; never invent missing measurements.
+- Port 8000 occupied: identify the existing process before stopping it; do not kill unrelated services.
+- Java “Unable to establish loopback connection” / “Invalid argument”: use run-java.ps1 or a short workspace -SocketDirectory. A short LocalAppData path can still be MSIX-virtualized in this environment.
+- Database lock: close another app instance normally; do not remove the DB file.
+- GUI tests require an unlocked desktop. Optional MySQL and non-Windows deployment have not been validated.
 
-These flags enable the real Java HTTP request and the displayed consent lifecycle test. The latter requires a desktop session. The socket workaround above may also be needed. The audit's final full Java suite passed 18 tests, including collector categories, session means and database round trips.
+Use SWELL under the download agreement and this project's noncommercial research scope. Keep raw/derived participant data and trained artifacts local. The source-code license grants no dataset redistribution rights.
 
-The actual JavaFX application was launched with mvn clean javafx:run. Consent, real hooks, backend predictions, database persistence, continuous-score display and the explanation view were verified. See [AUDIT_REPORT.md](AUDIT_REPORT.md) for command results, limitations and preservation evidence.
-
-## Database and Git safety
-
-Do not delete java-app/data/stressdb.mv.db or recreate it to troubleshoot. H2 uses the directory relative to java-app; launch there consistently. Additive migrations create only new tables. Legacy predictions remain stored; current 0–10 reports select schema-3 prediction records so old synthetic/0–100 scores do not contaminate history or model context.
-
-A byte-identical pre-audit backup is retained locally under .audit/backups/stressdb.before.mv.db. All original rows in seven tables were compared by deterministic hashes and preserved. Real verification sessions append records.
-
-Raw and processed datasets, model binaries/metadata, results, databases, audit logs/backups, local overrides and credentials are ignored. The initial commit tracked two H2 files. This audit removed only their Git index entries using git rm --cached; both local files remain intact. Those staged deletions concern tracking only. No commit or publication was made. Historical database objects remain in the initial commit; removing them requires a separate history-rewrite decision.
-
-## Attribution and use
-
-Use SWELL only under the dataset agreement supplied with your download and this project's noncommercial research scope. Keep raw/derived participant data and trained artifacts local. The source-code license grants no rights to redistribute the dataset.
-
-Cite Koldijk, Sappelli, Verberne, Neerincx and Kraaij (2014), *The SWELL Knowledge Work Dataset for Stress and User Modeling Research*, ACM ICMI. [Author's paper](https://cs.ru.nl/~skoldijk/Papers/ICMI%202014%20paper_final_cr.pdf), [DOI](https://doi.org/10.1145/2663204.2663257). The local workbook's “Features and interest” and “Notes on the data” sheets define the counters and repeated questionnaire scores.
-
-Other historical proposal/paper/viva notes may describe the former synthetic classification design. They are not evidence for the active real-data regression pipeline; use this README, actual result files and the audit report.
+Cite Koldijk, Sappelli, Verberne, Neerincx and Kraaij (2014), “The SWELL Knowledge Work Dataset for Stress and User Modeling Research”, ACM ICMI: [author's paper](https://cs.ru.nl/~skoldijk/Papers/ICMI%202014%20paper_final_cr.pdf), [DOI](https://doi.org/10.1145/2663204.2663257). The workbook's Features and interest / Notes on the data sheets define the interaction counters and repeated condition ratings.

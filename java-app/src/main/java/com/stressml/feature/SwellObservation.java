@@ -12,6 +12,10 @@ public final class SwellObservation {
     private int windows;
 
     public Map<String, Double> add(Map<String, Double> measured) {
+        if (measured.isEmpty() || measured.values().stream().anyMatch(v -> v == null || !Double.isFinite(v) || v < 0))
+            throw new IllegalArgumentException("Finite nonnegative measurements required");
+        if (windows > 0 && !sums.keySet().equals(measured.keySet()))
+            throw new IllegalArgumentException("Observation feature schema changed");
         measured.forEach((key, value) -> sums.merge(key, value, Double::sum));
         windows++;
         Map<String, Double> means = new LinkedHashMap<>();

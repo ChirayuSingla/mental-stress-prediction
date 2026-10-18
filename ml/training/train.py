@@ -30,6 +30,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from preprocessing.features import SWELL_ALL, SWELL_ALL_NO_MOUSE_DIST, DESKTOP_ALL, DESKTOP_NO_DIST, TARGET
 from preprocessing.preprocess import build_regression_matrix
 from training.models import candidate_regressors
+from training.nested import evaluate_nested, select_candidate, deployment_candidates, investigate
 from evaluation.plots import (
     plot_regression_comparison,
     plot_actual_vs_predicted,
@@ -164,13 +165,28 @@ def main():
         is_demo,
     )
 
-    # [4/4] Train best model on all SWELL data and serialize
+    # Deployment selection includes baselines. Outer held-out participants never
+    # influence candidate selection, transforms or learned preprocessing.
+    nested_report, nested_predictions = evaluate_nested(df, seed, folds, 4)
+    nested_report["diagnosis"] = investigate(df, nested_report)
+    (Path(args.results) / "nested_evaluation.json").write_text(json.dumps(nested_report, indent=2), encoding="utf-8")
+    best_features = DESKTOP_NO_DIST
+    best_dist = False
+    X_dev = df[best_features]
+    best_name, final_pipeline, ranking = select_candidate(
+        X_dev, df[target_col].to_numpy(), df.participant_id.to_numpy(), deployment_candidates(seed), 4)
+    pd.DataFrame(ranking).to_csv(Path(args.results) / "development_selection.csv", index=False)
+    best_metrics = nested_report["metrics"]["NestedSelection"]
+    best_preds = nested_predictions["NestedSelection"]
+    best_y = df[target_col].to_numpy()
+    pd.DataFrame(nested_report["metrics"]).T.to_csv(Path(args.results) / "nested_metrics.csv", index_label="procedure")
+
+    # [4/4] Refit selected deployment procedure on all data after evaluation.
     print(f"\n[4/4] Best overall model: {best_name} ({'with' if best_dist else 'without'} SnMouseDistance)")
     print(f"      CV Metrics: MAE = {best_metrics['mae']:.3f}, RMSE = {best_metrics['rmse']:.3f}, R² = {best_metrics['r2']:.3f}")
 
     X_full, y_full, _ = build_regression_matrix(df, best_features, target_col)
-    final_pipeline = candidate_regressors(seed, include_mlp=not args.no_mlp)[best_name]
-    final_pipeline.fit(X_full, y_full)
+    final_pipeline.fit(pd.DataFrame(X_full, columns=best_features), y_full)
 
     # Save model artifact
     model_path = os.path.join(args.out, "stress_model.joblib")
@@ -191,9 +207,12 @@ def main():
         "n_participants": int(df["participant_id"].nunique()),
         "schema_version": 3,
         "feature_units": "mean per-minute counts/distance; mean minute ratios",
-        "excluded_desktop_features": ["SnMouseAct", "SnTabfocusChange"],
-        "cv_method": "GroupKFold", "cv_folds": folds,
-        "evaluation_note": "Pooled out-of-fold metrics used for model selection; exploratory, not nested unbiased performance estimates. Desktop minute estimates are not validated by condition-block evaluation.",
+        "cv_method": "Nested GroupKFold", "cv_folds": folds, "inner_cv_folds": 4,
+        "prediction_kind": "reference_baseline" if best_name.startswith("Dummy") else "behavioral_regression",
+        "development_selection_metrics": next(row for row in ranking if row["model"] == best_name),
+        "nested_comparators": nested_report["metrics"],
+        "excluded_desktop_features": ["SnMouseAct", "SnTabfocusChange", "SnMouseDistance"],
+        "evaluation_note": "CV metrics evaluate nested model selection, whose chosen candidate can differ by outer fold. Full-data refit selected by inner grouped MAE including baselines. No external or desktop validation.",
         "source_sha256": audit["source_sha256"],
         "processed_sha256": audit["processed_sha256"],
         "model_sha256": hashlib.sha256(Path(model_path).read_bytes()).hexdigest(),
